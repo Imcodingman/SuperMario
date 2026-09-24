@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+  <title>超级玛丽 H5</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #hint {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: rgba(255, 255, 255, .55);
+      font-size: 13px;
+      pointer-events: none;
+    }
+    @media (orientation: portrait) {
+      #stage {
+        align-items: flex-start;
+        padding-top: max(env(safe-area-inset-top), 24px);
+      }
+      body.touch #hint { display: block; }
+    }
+
+    #controls {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 max(20px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+      pointer-events: none;
+      z-index: 2;
+    }
+    body.touch #controls { display: flex; }
+    #dpad {
+      pointer-events: auto;
+      width: 164px;
+      height: 84px;
+      display: flex;
+      border-radius: 42px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .14);
+      border: 2px solid rgba(255, 255, 255, .35);
+    }
+    .arrow {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 30px;
+      opacity: .85;
+    }
+    .arrow.on { background: rgba(255, 255, 255, .28); }
+    #btns {
+      pointer-events: auto;
+      display: flex;
+      gap: 18px;
+      align-items: flex-end;
+    }
+    .btn {
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      background: rgba(216, 40, 0, .5);
+      border: 2px solid rgba(255, 255, 255, .5);
+      color: #fff;
+      font-weight: bold;
+      font-size: 24px;
+      line-height: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn small { font-size: 11px; font-weight: normal; margin-top: 3px; opacity: .85; }
+    #btnA { margin-bottom: 30px; }
+    .btn.on { background: rgba(255, 90, 40, .85); }
+
+    #topbar {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: max(14px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 10px;
+      z-index: 3;
+    }
+    #topbar button {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, .45);
+      background: rgba(0, 0, 0, .35);
+      color: #fff;
+      font-size: 16px;
+      padding: 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="game"></canvas></div>
+  <div id="hint">横屏体验更佳</div>
+
+  <div id="controls">
+    <div id="dpad">
+      <div class="arrow" data-dir="left">◀</div>
+      <div class="arrow" data-dir="right">▶</div>
+    </div>
+    <div id="btns">
+      <div id="btnB" class="btn">B<small>加速</small></div>
+      <div id="btnA" class="btn">A<small>跳跃</small></div>
+    </div>
+  </div>
+
+  <div id="topbar">
+    <button id="pauseBtn" title="暂停 (P)">❚❚</button>
+    <button id="muteBtn" title="静音 (M)">♪</button>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
