@@ -2,6 +2,10 @@
 
 用原生 HTML5 Canvas + JavaScript 写的横版闯关小游戏。没有依赖，也不用构建，手机和电脑浏览器都能玩。
 
+## 在线试玩
+
+https://imcodingman.github.io/SuperMario/ （手机浏览器直接打开即可）
+
 ## 运行
 
 直接用浏览器打开 `index.html`，或者起一个静态服务器：
