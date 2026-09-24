@@ -123,24 +123,33 @@
     };
 
     // ---- 原创背景音乐循环 ----
-    const MEL = [72, 0, 76, 79, 81, 79, 76, 0, 74, 0, 77, 81, 79, 77, 74, 0,
-      72, 76, 79, 84, 83, 79, 76, 74, 72, 0, 67, 0, 72, 0, 0, 0];
-    const ROOTS = [48, 50, 43, 48];
-    const BASS_PAT = [0, 0, 7, 0, 12, 0, 7, 0];
+    const SONGS = [
+      { // 地上
+        mel: [72, 0, 76, 79, 81, 79, 76, 0, 74, 0, 77, 81, 79, 77, 74, 0,
+          72, 76, 79, 84, 83, 79, 76, 74, 72, 0, 67, 0, 72, 0, 0, 0],
+        roots: [48, 50, 43, 48], bass: [0, 0, 7, 0, 12, 0, 7, 0], step: 0.19,
+      },
+      { // 地下（小调、稀疏）
+        mel: [69, 0, 72, 0, 76, 0, 75, 0, 69, 0, 72, 0, 74, 0, 0, 0,
+          67, 0, 70, 0, 74, 0, 73, 0, 67, 0, 70, 0, 72, 0, 0, 0],
+        roots: [45, 45, 43, 43], bass: [0, 0, 12, 0, 0, 0, 12, 0], step: 0.17,
+      },
+    ];
+    let song = SONGS[0];
     let bgmOn = false;
     let nextTime = 0;
     let idx = 0;
     let fast = false;
     setInterval(() => {
       if (!bgmOn || !actx) return;
-      const step = fast ? 0.13 : 0.19;
+      const step = fast ? song.step * 0.68 : song.step;
       if (nextTime < actx.currentTime - 0.1) nextTime = actx.currentTime + 0.05;
       while (nextTime < actx.currentTime + 0.25) {
         const i = idx % 32;
-        const m = MEL[i];
+        const m = song.mel[i];
         if (m) tone(midi(m), step * 0.8, { when: nextTime, vol: 0.035 });
-        const b = BASS_PAT[i % 8];
-        if (i % 2 === 0) tone(midi(ROOTS[Math.floor(i / 8)] + b), step * 0.9, { when: nextTime, type: 'triangle', vol: 0.12 });
+        const b = song.bass[i % 8];
+        if (i % 2 === 0) tone(midi(song.roots[Math.floor(i / 8)] + b), step * 0.9, { when: nextTime, type: 'triangle', vol: 0.12 });
         nextTime += step;
         idx++;
       }
@@ -149,9 +158,10 @@
     return {
       init,
       sfx,
-      startBgm(isFast = false) {
+      startBgm(isFast = false, songIdx) {
         if (!actx) return;
         fast = isFast;
+        if (songIdx !== undefined) song = SONGS[songIdx] || SONGS[0];
         if (!bgmOn) { bgmOn = true; idx = 0; nextTime = actx.currentTime + 0.05; }
       },
       stopBgm() { bgmOn = false; },
@@ -554,6 +564,31 @@
   ];
   TILE.q = ['#f8b800', '#e89000', '#c86c00'].map(o =>
     makeSprite(Q_ROWS, { O: o, D: '#c84c0c', K: '#000', Y: '#883800' }).r);
+  // 地下主题：把砖块类图块的红褐色换成蓝色
+  function recolor(src, map) {
+    const c = document.createElement('canvas');
+    c.width = src.width;
+    c.height = src.height;
+    const g = c.getContext('2d');
+    g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, c.width, c.height);
+    const d = img.data;
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const pairs = Object.entries(map).map(([a, b]) => [hex(a), hex(b)]);
+    for (let i = 0; i < d.length; i += 4) {
+      for (const [a, b] of pairs) {
+        if (d[i] === a[0] && d[i + 1] === a[1] && d[i + 2] === a[2]) { d[i] = b[0]; d[i + 1] = b[1]; d[i + 2] = b[2]; break; }
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  const UG_MAP = { '#c84c0c': '#2a5fc0', '#fcbcb0': '#a8d8fc' };
+  const TILE_UG = {
+    ground: recolor(TILE.ground, UG_MAP),
+    brick: recolor(TILE.brick, UG_MAP),
+    hard: recolor(TILE.hard, UG_MAP),
+  };
   const PIPE_PAL = { G: '#00a800', H: '#b8f818', D: '#005800', K: '#000' };
   const rep = (s, n) => Array(n).fill(s);
   TILE.pipeTL = makeSprite(['KKKKKKKKKKKKKKKK', ...rep('KGHHGGGGGGGGGGGG', 14), 'KKKKKKKKKKKKKKKK'], PIPE_PAL).r;
@@ -566,7 +601,7 @@
   // ============================================================
   // 图块编号
   const E = 0, GROUND = 1, BRICK = 2, QCOIN = 3, QMUSH = 4, USED = 5, HARD = 6,
-    PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11;
+    PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11, COIN = 12;
   const tiles = new Uint8Array(LW * LH);
   const coinBricks = new Map();
 
@@ -575,77 +610,168 @@
   const solid = (x, y) => {
     if (x < 0 || x >= LW) return true;
     if (y < 0 || y >= LH) return false;
-    return tiles[y * LW + x] !== E;
+    const t = tiles[y * LW + x];
+    return t !== E && t !== COIN;
   };
 
-  const ENEMY_SPAWNS = [
-    [22, 12], [40, 12], [51, 12], [52.5, 12], [80, 4], [82, 4],
-    [97, 12], [98.5, 12], [114, 12], [115.5, 12], [124, 12], [125.5, 12],
-    [128, 12], [129.5, 12], [174, 12], [175.5, 12],
-  ];
-
-  function buildLevel() {
-    tiles.fill(E);
-    coinBricks.clear();
-    const gaps = [[69, 70], [86, 88], [153, 154]];
+  // ---- 搭建关卡用的小工具 ----
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const row = (xs, y, v) => xs.forEach(x => setT(x, y, v));
+  const groundWithGaps = gaps => {
     for (let x = 0; x < LW; x++) {
       if (gaps.some(([a, b]) => x >= a && x <= b)) continue;
       setT(x, 13, GROUND);
       setT(x, 14, GROUND);
     }
-    const row = (xs, y, v) => xs.forEach(x => setT(x, y, v));
-    const pipe = (x, h) => {
-      const top = 13 - h;
-      setT(x, top, PTL); setT(x + 1, top, PTR);
-      for (let y = top + 1; y < 13; y++) { setT(x, y, PL); setT(x + 1, y, PR); }
-    };
-    const stairs = (x, heights) => heights.forEach((h, i) => {
-      for (let k = 0; k < h; k++) setT(x + i, 12 - k, HARD);
-    });
-
-    setT(16, 9, QCOIN);
-    row([20, 22, 24], 9, BRICK);
-    setT(21, 9, QMUSH);
-    setT(23, 9, QCOIN);
-    setT(22, 5, QCOIN);
-    pipe(28, 2); pipe(38, 3); pipe(46, 4); pipe(57, 4);
-
-    row([77, 79], 9, BRICK);
-    setT(78, 9, QMUSH);
-    row([80, 81, 82, 83, 84, 85, 86, 87], 5, BRICK);
-    row([91, 92, 93], 5, BRICK);
-    setT(94, 5, QCOIN);
-    setT(94, 9, BRICK_COINS);
-    row([100, 101], 9, BRICK);
-    row([106, 112], 9, QCOIN);
-    setT(109, 9, QMUSH);
-    setT(109, 5, QCOIN);
-    setT(118, 9, BRICK);
-    row([121, 122, 123], 5, BRICK);
-    row([128, 131], 5, BRICK);
-    row([129, 130], 5, QCOIN);
-    row([129, 130], 9, BRICK);
-
-    stairs(134, [1, 2, 3, 4]);
-    stairs(140, [4, 3, 2, 1]);
-    stairs(148, [1, 2, 3, 4, 4]);
-    stairs(155, [4, 3, 2, 1]);
-    pipe(163, 2);
-    row([168, 169, 171], 9, BRICK);
-    setT(170, 9, QCOIN);
-    pipe(179, 2);
-    stairs(181, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
-    setT(FLAG_X, 12, HARD);
-  }
+  };
+  const pipe = (x, h) => {
+    const top = 13 - h;
+    setT(x, top, PTL); setT(x + 1, top, PTR);
+    for (let y = top + 1; y < 13; y++) { setT(x, y, PL); setT(x + 1, y, PR); }
+  };
+  const stairs = (x, heights) => heights.forEach((h, i) => {
+    for (let k = 0; k < h; k++) setT(x + i, 12 - k, HARD);
+  });
 
   // 背景装饰（山、草丛、云）
-  const DECO = [];
+  const DECO_1 = [];
   for (let b = 0; b < LW - 16; b += 48) {
-    DECO.push({ k: 'hill', x: b, s: 2 }, { k: 'cloud', x: b + 8, y: 3, n: 1 },
+    DECO_1.push({ k: 'hill', x: b, s: 2 }, { k: 'cloud', x: b + 8, y: 3, n: 1 },
       { k: 'bush', x: b + 11, n: 3 }, { k: 'hill', x: b + 16, s: 1 },
       { k: 'cloud', x: b + 19, y: 2, n: 1 }, { k: 'bush', x: b + 23, n: 1 },
       { k: 'cloud', x: b + 27, y: 3, n: 3 }, { k: 'cloud', x: b + 36, y: 2, n: 2 },
       { k: 'bush', x: b + 41, n: 2 });
+  }
+
+  const LEVELS = [
+    {
+      name: '1-1',
+      song: 0,
+      ugEnd: 0,          // 地下区域结束列（0 表示整关都在地上）
+      checkpoint: 90,
+      deco: DECO_1,
+      enemies: [
+        [22, 12], [40, 12], [51, 12], [52.5, 12], [80, 4], [82, 4],
+        [97, 12], [98.5, 12], [114, 12], [115.5, 12], [124, 12], [125.5, 12],
+        [128, 12], [129.5, 12], [174, 12], [175.5, 12],
+      ],
+      build() {
+        groundWithGaps([[69, 70], [86, 88], [153, 154]]);
+        setT(16, 9, QCOIN);
+        row([20, 22, 24], 9, BRICK);
+        setT(21, 9, QMUSH);
+        setT(23, 9, QCOIN);
+        setT(22, 5, QCOIN);
+        pipe(28, 2); pipe(38, 3); pipe(46, 4); pipe(57, 4);
+
+        row([77, 79], 9, BRICK);
+        setT(78, 9, QMUSH);
+        row(range(80, 87), 5, BRICK);
+        row([91, 92, 93], 5, BRICK);
+        setT(94, 5, QCOIN);
+        setT(94, 9, BRICK_COINS);
+        row([100, 101], 9, BRICK);
+        row([106, 112], 9, QCOIN);
+        setT(109, 9, QMUSH);
+        setT(109, 5, QCOIN);
+        setT(118, 9, BRICK);
+        row([121, 122, 123], 5, BRICK);
+        row([128, 131], 5, BRICK);
+        row([129, 130], 5, QCOIN);
+        row([129, 130], 9, BRICK);
+
+        stairs(134, [1, 2, 3, 4]);
+        stairs(140, [4, 3, 2, 1]);
+        stairs(148, [1, 2, 3, 4, 4]);
+        stairs(155, [4, 3, 2, 1]);
+        pipe(163, 2);
+        row([168, 169, 171], 9, BRICK);
+        setT(170, 9, QCOIN);
+        pipe(179, 2);
+        stairs(181, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+        setT(FLAG_X, 12, HARD);
+      },
+    },
+    {
+      name: '1-2',
+      song: 1,
+      ugEnd: 182,
+      checkpoint: 90,
+      deco: [
+        { k: 'cloud', x: 186, y: 2, n: 1 }, { k: 'hill', x: 195, s: 1 },
+        { k: 'cloud', x: 199, y: 3, n: 2 }, { k: 'bush', x: 207, n: 1 },
+      ],
+      enemies: [
+        [16, 12], [18, 12], [27, 12], [31, 12],
+        [47, 8], [51, 8], [60, 12], [61.5, 12],
+        [88, 12], [98, 12], [99.5, 12], [106, 12], [107.5, 12],
+        [125, 8], [134, 8], [136, 8], [145, 12], [146.5, 12],
+        [161, 12], [162.5, 12], [164, 12], [172, 12], [173.5, 12],
+      ],
+      build() {
+        groundWithGaps([[76, 78], [127, 132], [154, 155]]);
+        // 入口墙和天花板
+        for (let y = 2; y <= 12; y++) setT(0, y, BRICK);
+        row(range(6, 179), 2, BRICK);
+
+        // 开场：一排问号砖
+        setT(10, 9, QMUSH);
+        row([11, 12, 13, 14], 9, QCOIN);
+
+        // 高低石柱，柱顶上方有金币
+        const pillars = [[24, 1], [26, 2], [28, 3], [30, 4], [32, 3], [34, 2]];
+        for (const [x, h] of pillars) {
+          stairs(x, [h]);
+          setT(x, 12 - h - 1, COIN);
+        }
+
+        // 双层砖块走廊，中间一排金币
+        row(range(44, 55), 9, BRICK);
+        row(range(44, 55), 5, BRICK);
+        row(range(46, 53), 8, COIN);
+        setT(50, 9, BRICK_COINS);
+        setT(49, 5, QCOIN);
+
+        // 小台阶和第一个坑
+        stairs(64, [1, 2, 3]);
+        row(range(68, 72), 9, BRICK);
+        row(range(68, 72), 8, COIN);
+
+        // 水管区
+        pipe(84, 2);
+        pipe(94, 3);
+        row([94, 95], 8, COIN);
+        pipe(102, 4);
+        row([102, 103], 7, COIN);
+        row([109, 111], 9, BRICK);
+        setT(110, 9, QMUSH);
+
+        // 大坑上方的长砖桥
+        row(range(122, 139), 9, BRICK);
+        row(range(126, 135), 8, COIN);
+        row([125, 126], 5, QCOIN);
+
+        // 台阶夹着的坑，坑上悬着金币
+        stairs(150, [1, 2, 3, 4]);
+        row([154, 155], 6, COIN);
+        stairs(156, [4, 3, 2, 1]);
+
+        // 最后一段敌人群
+        row([164, 165, 167, 168], 9, BRICK);
+        setT(166, 9, QCOIN);
+        row(range(170, 176), 5, COIN);
+
+        // 出口：回到地面，登上台阶去旗杆
+        stairs(186, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+        setT(FLAG_X, 12, HARD);
+      },
+    },
+  ];
+
+  function buildLevel() {
+    tiles.fill(E);
+    coinBricks.clear();
+    LEVELS[game.level].build();
   }
 
   // ============================================================
@@ -659,6 +785,7 @@
     score: 0, coins: 0, lives: 3, time: 400, timeTick: 0,
     frame: 0, stateT: 0, checkpoint: false,
     flagY: 0, flagPhase: 0, combo: 0,
+    level: 0, carryBig: false,
   };
   let paused = false;
   let camX = 0;
@@ -681,6 +808,8 @@
     game.coins = 0;
     game.lives = 3;
     game.checkpoint = false;
+    game.level = 0;
+    game.carryBig = false;
     startIntro();
   }
 
@@ -694,10 +823,12 @@
     bumps.clear();
     items = [];
     effects = [];
-    const sx = game.checkpoint ? 90 * T : 40;
+    const lv = LEVELS[game.level];
+    const sx = game.checkpoint ? lv.checkpoint * T : 40;
     player = newPlayer(sx);
+    if (game.carryBig) { player.big = true; player.h = 28; player.y = GROUND_Y - 28; }
     camX = Math.max(0, sx - 40);
-    enemies = ENEMY_SPAWNS.map(([tx, ty]) => ({
+    enemies = lv.enemies.map(([tx, ty]) => ({
       x: tx * T + 1, y: ty * T + 2, w: 14, h: 14, vx: -0.5, vy: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
     }));
@@ -709,7 +840,21 @@
     game.state = 'play';
     game.stateT = 0;
     jumpBuf = 0;
-    Sound.startBgm(false);
+    Sound.startBgm(false, lv.song);
+  }
+
+  // 回到标题画面：重置为第一关的场景
+  function toTitle() {
+    game.state = 'title';
+    game.stateT = 0;
+    game.level = 0;
+    buildLevel();
+    player = newPlayer(40);
+    enemies = [];
+    items = [];
+    effects = [];
+    bumps.clear();
+    camX = 0;
   }
 
   function anyPress() {
@@ -717,8 +862,7 @@
     if (paused) return;
     if (game.state === 'title') { newGame(); jumpBuf = 0; }
     else if ((game.state === 'gameover' || game.state === 'clear') && game.stateT > 45) {
-      game.state = 'title';
-      game.stateT = 0;
+      toTitle();
       jumpBuf = 0;
     }
   }
@@ -728,7 +872,7 @@
     paused = !paused;
     Sound.init();
     if (paused) { Sound.stopBgm(); Sound.sfx.pause(); }
-    else if (game.state === 'play') Sound.startBgm(game.time <= 100);
+    else if (game.state === 'play') Sound.startBgm(game.time <= 100, LEVELS[game.level].song);
     document.getElementById('pauseBtn').textContent = paused ? '▶' : '❚❚';
   }
   document.addEventListener('visibilitychange', () => {
@@ -891,8 +1035,24 @@
     player.vy = pit ? 0 : -5;
     player.pit = pit;
     if (player.big) { player.big = false; player.h = 14; }
+    game.carryBig = false;
     Sound.stopBgm();
     Sound.sfx.die();
+  }
+
+  // 吃掉与玩家重叠的金币图块
+  function collectCoins(p) {
+    const x0 = Math.floor(p.x / T), x1 = Math.floor((p.x + p.w - 0.001) / T);
+    const y0 = Math.floor(p.y / T), y1 = Math.floor((p.y + p.h - 0.001) / T);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (getT(tx, ty) !== COIN) continue;
+        setT(tx, ty, E);
+        addCoin();
+        game.score += 200;
+        Sound.sfx.coin();
+      }
+    }
   }
 
   function updatePlayer() {
@@ -961,7 +1121,8 @@
       if (Math.abs(p.vx) > 0.05) p.anim += Math.abs(p.vx) * 0.11; else p.anim = 0;
     }
     if (p.invuln > 0) p.invuln--;
-    if (p.x > 90 * T) game.checkpoint = true;
+    if (p.x > LEVELS[game.level].checkpoint * T) game.checkpoint = true;
+    collectCoins(p);
 
     if (p.y > VIEW_H + 8) { killPlayer(true); return; }
     if (p.x + p.w >= FLAG_X * T + 6) startFlag();
@@ -1128,8 +1289,15 @@
         if (game.stateT % 3 === 0) Sound.sfx.tick();
       } else if (game.stateT > 60) {
         saveBest();
-        game.state = 'clear';
-        game.stateT = 0;
+        if (game.level < LEVELS.length - 1) {
+          game.level++;
+          game.checkpoint = false;
+          game.carryBig = player.big;
+          startIntro();
+        } else {
+          game.state = 'clear';
+          game.stateT = 0;
+        }
       }
     }
     updateEffects();
@@ -1228,7 +1396,7 @@
   }
 
   function drawDeco(cx) {
-    for (const d of DECO) {
+    for (const d of LEVELS[game.level].deco) {
       const x = d.x * T - cx;
       if (x > VIEW_W + 10 || x < -100) continue;
       if (d.k === 'hill') {
@@ -1298,16 +1466,17 @@
     ctx.beginPath(); ctx.arc(px - 5, fy + 5, 3, 0, Math.PI * 2); ctx.fill();
   }
 
-  function tileImage(t) {
+  function tileImage(t, tx) {
+    const ug = tx < LEVELS[game.level].ugEnd;
     switch (t) {
-      case GROUND: return TILE.ground;
-      case BRICK: case BRICK_COINS: return TILE.brick;
+      case GROUND: return ug ? TILE_UG.ground : TILE.ground;
+      case BRICK: case BRICK_COINS: return ug ? TILE_UG.brick : TILE.brick;
       case QCOIN: case QMUSH: {
         const seq = [0, 0, 0, 0, 1, 2, 2, 1];
         return TILE.q[seq[Math.floor(game.frame / 8) % seq.length]];
       }
       case USED: return TILE.used;
-      case HARD: return TILE.hard;
+      case HARD: return ug ? TILE_UG.hard : TILE.hard;
       case PTL: return TILE.pipeTL;
       case PTR: return TILE.pipeTR;
       case PL: return TILE.pipeL;
@@ -1323,9 +1492,10 @@
       for (let tx = x0; tx <= x1; tx++) {
         const t = tiles[ty * LW + tx];
         if (!t) continue;
+        if (t === COIN) { drawCoin(tx * T - cx + 4, ty * T + 1, game.frame * 0.08 + tx); continue; }
         const b = bumps.get(ty * LW + tx);
         const off = b !== undefined ? -Math.round(Math.sin(b / 10 * Math.PI) * 5) : 0;
-        ctx.drawImage(tileImage(t), tx * T - cx, ty * T + off);
+        ctx.drawImage(tileImage(t, tx), tx * T - cx, ty * T + off);
       }
     }
   }
@@ -1409,7 +1579,7 @@
     drawCoin(cols[1], 10, game.frame * 0.1);
     text('×' + pad(game.coins, 2), cols[1] + 11, 12);
     text('世界', cols[2], 6);
-    text('1-1', cols[2], 16);
+    text(LEVELS[game.level].name, cols[2], 16);
     text('时间', cols[3], 6);
     const showTime = ['play', 'dying', 'flag'].includes(game.state);
     text(showTime ? pad(game.time, 3) : '', cols[3], 16, { color: game.time <= 100 && showTime ? '#fcbc3c' : '#fff' });
@@ -1430,8 +1600,14 @@
 
   function drawWorld() {
     const cx = Math.floor(camX);
+    const ugEnd = LEVELS[game.level].ugEnd;
     ctx.fillStyle = SKY;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (ugEnd) {
+      // 地下部分是黑色背景，出口之后是天空
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, Math.max(0, Math.min(VIEW_W, ugEnd * T - cx)), VIEW_H);
+    }
     drawDeco(cx);
     drawCastle(cx);
     drawFlag(cx);
@@ -1453,7 +1629,7 @@
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       drawHUD();
       if (game.state === 'intro') {
-        text('世界 1-1', mid, 90, { size: 10, align: 'center' });
+        text('世界 ' + LEVELS[game.level].name, mid, 90, { size: 10, align: 'center' });
         ctx.drawImage(SPR.small[0].r, mid - 26, 116);
         text('×  ' + game.lives, mid + 2, 120, { size: 10 });
       } else {
@@ -1490,7 +1666,7 @@
       const w = Math.min(200, VIEW_W - 24), h = 70;
       const x = Math.round(mid - w / 2), y = 50;
       panel(x, y, w, h);
-      text('恭喜通关！', mid, y + 12, { size: 16, align: 'center', color: '#fcd8a8' });
+      text('全部通关！', mid, y + 12, { size: 16, align: 'center', color: '#fcd8a8' });
       text('得分 ' + game.score + '   最高 ' + best, mid, y + 40, { size: 8, align: 'center' });
       if (game.stateT > 45 && Math.floor(game.frame / 30) % 2 === 0) {
         text('点击屏幕 / 按回车 再玩一次', mid, y + h + 12, { size: 8, align: 'center' });
