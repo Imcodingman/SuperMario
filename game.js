@@ -134,6 +134,11 @@
           67, 0, 70, 0, 74, 0, 73, 0, 67, 0, 70, 0, 72, 0, 0, 0],
         roots: [45, 45, 43, 43], bass: [0, 0, 12, 0, 0, 0, 12, 0], step: 0.17,
       },
+      { // 空中（轻快）
+        mel: [74, 0, 78, 0, 81, 0, 78, 0, 76, 0, 79, 0, 83, 0, 79, 0,
+          74, 78, 81, 86, 85, 81, 78, 76, 74, 0, 69, 0, 74, 0, 0, 0],
+        roots: [50, 55, 57, 50], bass: [0, 0, 7, 0, 12, 0, 7, 0], step: 0.18,
+      },
     ];
     let song = SONGS[0];
     let bgmOn = false;
@@ -589,6 +594,49 @@
     brick: recolor(TILE.brick, UG_MAP),
     hard: recolor(TILE.hard, UG_MAP),
   };
+  // 空中关：树顶平台和树干
+  const TREE_PAL = { K: '#000', L: '#b8f818', G: '#00a800', D: '#005800' };
+  TILE.treeM = makeSprite([
+    'KKKKKKKKKKKKKKKK',
+    'LLLLLLLLLLLLLLLL',
+    'LLGLLLLLLLGLLLLL',
+    'GGGGGGGGGGGGGGGG',
+    'GGGDGGGGGGGGDGGG',
+    'GGGGGGGGGGGGGGGG',
+    'GGGGGGGDGGGGGGGG',
+    'GGGGGGGGGGGGGGGG',
+    'GDGGGGGGGGGGGGDG',
+    'GGGGGGGGGGGGGGGG',
+    'GGGGGGDGGGGGGGGG',
+    'GGGGGGGGGGGGGGGG',
+    'GGGGGGGGGGDGGGGG',
+    'GGGGGGGGGGGGGGGG',
+    'DDDDDDDDDDDDDDDD',
+    'KKKKKKKKKKKKKKKK',
+  ], TREE_PAL).r;
+  const TREE_CAP = makeSprite([
+    '....KKKKKKKKKKKK',
+    '..KKLLLLLLLLLLLL',
+    '.KLLLGLLLLLLLGLL',
+    '.KLGGGGGGGGGGGGG',
+    'KLGGGDGGGGGGGGGG',
+    'KLGGGGGGGGGGGGGG',
+    'KGGGGGGGGDGGGGGG',
+    'KGGGGGGGGGGGGGGG',
+    'KGDGGGGGGGGGGGDG',
+    'KGGGGGGGGGGGGGGG',
+    'KGGGGGGDGGGGGGGG',
+    'KGGGGGGGGGGGGGGG',
+    '.KGGGGGGGGGDGGGG',
+    '.KDGGGGGGGGGGGGG',
+    '..KKDDDDDDDDDDDD',
+    '....KKKKKKKKKKKK',
+  ], TREE_PAL);
+  TILE.treeL = TREE_CAP.r;
+  TILE.treeR = TREE_CAP.l;
+  TILE.trunk = makeSprite(Array.from({ length: 16 }, (_, i) =>
+    i % 4 < 2 ? '..KTTSTTTTSTTK..' : '..KTSTTTTSTTTK..'), { K: '#000', T: '#c07838', S: '#8c4c18' }).r;
+
   const PIPE_PAL = { G: '#00a800', H: '#b8f818', D: '#005800', K: '#000' };
   const rep = (s, n) => Array(n).fill(s);
   TILE.pipeTL = makeSprite(['KKKKKKKKKKKKKKKK', ...rep('KGHHGGGGGGGGGGGG', 14), 'KKKKKKKKKKKKKKKK'], PIPE_PAL).r;
@@ -601,7 +649,8 @@
   // ============================================================
   // 图块编号
   const E = 0, GROUND = 1, BRICK = 2, QCOIN = 3, QMUSH = 4, USED = 5, HARD = 6,
-    PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11, COIN = 12;
+    PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11, COIN = 12,
+    TREE_L = 13, TREE_M = 14, TREE_R = 15, TRUNK = 16;
   const tiles = new Uint8Array(LW * LH);
   const coinBricks = new Map();
 
@@ -611,7 +660,7 @@
     if (x < 0 || x >= LW) return true;
     if (y < 0 || y >= LH) return false;
     const t = tiles[y * LW + x];
-    return t !== E && t !== COIN;
+    return t !== E && t !== COIN && t !== TRUNK;
   };
 
   // ---- 搭建关卡用的小工具 ----
@@ -632,6 +681,14 @@
   const stairs = (x, heights) => heights.forEach((h, i) => {
     for (let k = 0; k < h; k++) setT(x + i, 12 - k, HARD);
   });
+  // 树顶平台：x 起始列，w 宽度（≥3），top 树顶所在行；树干一直延伸到画面底部
+  const tree = (x, w, top) => {
+    setT(x, top, TREE_L);
+    for (let i = 1; i < w - 1; i++) setT(x + i, top, TREE_M);
+    setT(x + w - 1, top, TREE_R);
+    const tc = x + Math.floor((w - 1) / 2);
+    for (let y = top + 1; y < LH; y++) setT(tc, y, TRUNK);
+  };
 
   // 背景装饰（山、草丛、云）
   const DECO_1 = [];
@@ -648,7 +705,7 @@
       name: '1-1',
       song: 0,
       ugEnd: 0,          // 地下区域结束列（0 表示整关都在地上）
-      checkpoint: 90,
+      checkpoint: [90, 12],   // [列, 站立行]
       deco: DECO_1,
       enemies: [
         [22, 12], [40, 12], [51, 12], [52.5, 12], [80, 4], [82, 4],
@@ -696,7 +753,7 @@
       name: '1-2',
       song: 1,
       ugEnd: 182,
-      checkpoint: 90,
+      checkpoint: [90, 12],
       deco: [
         { k: 'cloud', x: 186, y: 2, n: 1 }, { k: 'hill', x: 195, s: 1 },
         { k: 'cloud', x: 199, y: 3, n: 2 }, { k: 'bush', x: 207, n: 1 },
@@ -768,6 +825,68 @@
     },
   ];
 
+  LEVELS.push({
+    name: '1-3',
+    song: 2,
+    ugEnd: 0,
+    checkpoint: [90, 10],
+    deco: [
+      { k: 'hill', x: 0, s: 2 }, { k: 'bush', x: 9, n: 1 },
+      ...Array.from({ length: 9 }, (_, i) => [
+        { k: 'cloud', x: i * 22 + 5, y: 2, n: 1 },
+        { k: 'cloud', x: i * 22 + 16, y: 4, n: i % 3 + 1 },
+      ]).flat(),
+      { k: 'hill', x: 180, s: 1 }, { k: 'bush', x: 207, n: 1 },
+    ],
+    enemies: [
+      [37, 9], [56, 7], [58, 7], [70, 5], [97, 7],
+      [115, 8], [131, 9], [133, 9], [162, 7], [164, 7], [183, 12], [185, 12],
+    ],
+    // 升降平台：列、行、方向、往返范围（按方向轴，单位为图块）
+    platforms: [
+      { x: 43, y: 9, axis: 'x', min: 43, max: 52 },
+      { x: 76, y: 5, axis: 'y', min: 4, max: 11 },
+      { x: 100, y: 7, axis: 'x', min: 100, max: 110 },
+      { x: 126, y: 9, axis: 'y', min: 5, max: 11 },
+      { x: 142, y: 9, axis: 'x', min: 142, max: 152 },
+      { x: 168, y: 10, axis: 'x', min: 168, max: 176 },
+    ],
+    build() {
+      // 只有起点和终点有地面，中间全靠树顶和升降平台
+      for (let x = 0; x < LW; x++) {
+        if (x <= 15 || x >= 179) { setT(x, 13, GROUND); setT(x, 14, GROUND); }
+      }
+      tree(17, 4, 11);
+      tree(23, 5, 9);
+      tree(30, 3, 7);
+      row([30, 31, 32], 5, COIN);
+      tree(35, 6, 10);
+      setT(38, 6, QMUSH);
+
+      tree(55, 5, 8);
+      tree(62, 3, 10);
+      tree(67, 7, 6);
+      row([69, 70, 71], 4, COIN);
+      tree(81, 4, 10);
+      tree(86, 8, 11);
+      tree(96, 3, 8);
+
+      tree(113, 5, 9);
+      setT(115, 5, QCOIN);
+      tree(120, 4, 6);
+      row(range(120, 123), 4, COIN);
+      tree(130, 6, 10);
+      tree(138, 3, 7);
+
+      tree(155, 4, 11);
+      tree(161, 5, 8);
+      setT(163, 4, QMUSH);
+
+      stairs(188, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+      setT(FLAG_X, 12, HARD);
+    },
+  });
+
   function buildLevel() {
     tiles.fill(E);
     coinBricks.clear();
@@ -793,6 +912,7 @@
   let enemies = [];
   let items = [];
   let effects = [];
+  let platforms = [];
   const bumps = new Map();   // 图块索引 -> 顶起动画帧
 
   function newPlayer(x) {
@@ -824,10 +944,16 @@
     items = [];
     effects = [];
     const lv = LEVELS[game.level];
-    const sx = game.checkpoint ? lv.checkpoint * T : 40;
+    const sx = game.checkpoint ? lv.checkpoint[0] * T : 40;
+    const standRow = game.checkpoint ? lv.checkpoint[1] : 12;
     player = newPlayer(sx);
-    if (game.carryBig) { player.big = true; player.h = 28; player.y = GROUND_Y - 28; }
+    if (game.carryBig) { player.big = true; player.h = 28; }
+    player.y = (standRow + 1) * T - player.h;
     camX = Math.max(0, sx - 40);
+    platforms = (lv.platforms || []).map(d => ({
+      x: d.x * T, y: d.y * T, w: 3 * T, h: 8, axis: d.axis,
+      min: d.min * T, max: d.max * T, speed: 0.6, dir: 1, dx: 0, dy: 0,
+    }));
     enemies = lv.enemies.map(([tx, ty]) => ({
       x: tx * T + 1, y: ty * T + 2, w: 14, h: 14, vx: -0.5, vy: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
@@ -851,6 +977,7 @@
     buildLevel();
     player = newPlayer(40);
     enemies = [];
+    platforms = [];
     items = [];
     effects = [];
     bumps.clear();
@@ -1055,8 +1182,28 @@
     }
   }
 
+  function updatePlatforms() {
+    for (const pl of platforms) {
+      const ox = pl.x, oy = pl.y;
+      if (pl.axis === 'x') {
+        pl.x += pl.speed * pl.dir;
+        if (pl.x >= pl.max) { pl.x = pl.max; pl.dir = -1; } else if (pl.x <= pl.min) { pl.x = pl.min; pl.dir = 1; }
+      } else {
+        pl.y += pl.speed * pl.dir;
+        if (pl.y >= pl.max) { pl.y = pl.max; pl.dir = -1; } else if (pl.y <= pl.min) { pl.y = pl.min; pl.dir = 1; }
+      }
+      pl.dx = pl.x - ox;
+      pl.dy = pl.y - oy;
+    }
+  }
+
   function updatePlayer() {
     const p = player;
+    // 站在升降平台上时跟着平台移动
+    if (p.plat) {
+      p.x += p.plat.dx;
+      p.y = p.plat.y - p.h;
+    }
     const L = input.left, R = input.right;
     // 自动加速：朝同一方向持续前进约 0.5 秒后开始提速，约 1.2 秒达到跑步速度；
     // 松开方向、反向或撞墙都会重新计时（空中保持不变）
@@ -1116,12 +1263,26 @@
       p.vy = 1;
       bumpBlock(r.tx, r.ty);
     }
+    // 升降平台只能从上方站上去
+    p.plat = null;
+    if (!p.onGround && p.vy >= 0) {
+      for (const pl of platforms) {
+        if (p.x + p.w > pl.x && p.x < pl.x + pl.w && p.prevBottom <= pl.y + 1 && p.y + p.h >= pl.y) {
+          p.y = pl.y - p.h;
+          p.vy = 0;
+          p.onGround = true;
+          p.plat = pl;
+          game.combo = 0;
+          break;
+        }
+      }
+    }
 
     if (p.onGround) {
       if (Math.abs(p.vx) > 0.05) p.anim += Math.abs(p.vx) * 0.11; else p.anim = 0;
     }
     if (p.invuln > 0) p.invuln--;
-    if (p.x > LEVELS[game.level].checkpoint * T) game.checkpoint = true;
+    if (p.x > LEVELS[game.level].checkpoint[0] * T) game.checkpoint = true;
     collectCoins(p);
 
     if (p.y > VIEW_H + 8) { killPlayer(true); return; }
@@ -1337,6 +1498,7 @@
           if (game.time === 100) { Sound.sfx.hurry(); Sound.setFast(true); }
           if (game.time <= 0) { game.time = 0; killPlayer(false); break; }
         }
+        updatePlatforms();
         updatePlayer();
         if (game.state !== 'play') break;
         updateItems();
@@ -1481,6 +1643,10 @@
       case PTR: return TILE.pipeTR;
       case PL: return TILE.pipeL;
       case PR: return TILE.pipeR;
+      case TREE_L: return TILE.treeL;
+      case TREE_M: return TILE.treeM;
+      case TREE_R: return TILE.treeR;
+      case TRUNK: return TILE.trunk;
     }
     return null;
   }
@@ -1497,6 +1663,21 @@
         const off = b !== undefined ? -Math.round(Math.sin(b / 10 * Math.PI) * 5) : 0;
         ctx.drawImage(tileImage(t, tx), tx * T - cx, ty * T + off);
       }
+    }
+  }
+
+  function drawPlatforms(cx) {
+    for (const pl of platforms) {
+      const x = Math.round(pl.x - cx), y = Math.round(pl.y);
+      if (x > VIEW_W || x + pl.w < 0) continue;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(x, y, pl.w, pl.h);
+      ctx.fillStyle = '#fca044';
+      ctx.fillRect(x + 1, y + 1, pl.w - 2, pl.h - 2);
+      ctx.fillStyle = '#fcd8a8';
+      ctx.fillRect(x + 1, y + 1, pl.w - 2, 1);
+      ctx.fillStyle = '#8c4c18';
+      for (let i = 4; i < pl.w - 2; i += 8) ctx.fillRect(x + i, y + 3, 2, 2);
     }
   }
 
@@ -1613,6 +1794,7 @@
     drawFlag(cx);
     drawItems(cx, true);
     drawTiles(cx);
+    drawPlatforms(cx);
     drawItems(cx, false);
     drawEnemies(cx);
     if (player) drawPlayer(cx);
@@ -1701,5 +1883,5 @@
   requestAnimationFrame(loop);
 
   // 调试/测试钩子
-  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; } };
+  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; } };
 })();
