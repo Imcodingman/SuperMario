@@ -169,9 +169,9 @@
   // ============================================================
   // 输入（键盘 + 触屏）
   // ============================================================
-  const keys = { left: false, right: false, jump: false, run: false };
-  const touch = { left: false, right: false, jump: false, run: false };
-  const input = { left: false, right: false, jump: false, run: false };
+  const keys = { left: false, right: false, jump: false };
+  const touch = { left: false, right: false, jump: false };
+  const input = { left: false, right: false, jump: false };
   let jumpBuf = 0;        // 跳跃缓冲（按下后若干帧内落地仍可起跳）
 
   function pressJump() { jumpBuf = 8; }
@@ -180,7 +180,6 @@
     ArrowLeft: 'left', KeyA: 'left',
     ArrowRight: 'right', KeyD: 'right',
     Space: 'jump', KeyZ: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyK: 'jump',
-    ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run', KeyJ: 'run',
   };
 
   window.addEventListener('keydown', e => {
@@ -252,7 +251,6 @@
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => el.addEventListener(n, up));
   }
   bindHold(document.getElementById('btnA'), 'jump', pressJump);
-  bindHold(document.getElementById('btnB'), 'run');
 
   document.getElementById('stage').addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -275,7 +273,6 @@
     input.left = keys.left || touch.left;
     input.right = keys.right || touch.right;
     input.jump = keys.jump || touch.jump;
-    input.run = keys.run || touch.run;
   }
 
   // ============================================================
@@ -351,12 +348,79 @@
   };
   // 帧顺序：0 站立 1 走A 2 走B 3 跳跃
   const smallRows = ['stand', 'walkA', 'walkB', 'jump'].map(k => HEAD.concat(LEGS[k]));
-  // 大号玛丽：头部 8 行保持，身体 8 行纵向放大 3 倍 → 32 行
-  const bigRows = smallRows.map(rows => {
-    const out = rows.slice(0, 8);
-    for (let i = 8; i < 16; i++) out.push(rows[i], rows[i], rows[i]);
-    return out;
-  });
+  // 大号玛丽：单独绘制的 16x32 像素图（头 11 行 + 身体 12 行 + 腿 9 行）
+  const BIG_UPPER = [
+    '.....RRRRRR.....',
+    '....RRRRRRRRR...',
+    '...RRRRRRRRRRRR.',
+    '...BBBSSSKKS....',
+    '..BSSBSSSKKSSS..',
+    '..BSSBSSSKKSSSS.',
+    '..BSSBBSSSSSSSS.',
+    '..BBSSSSBBBBBB..',
+    '...BBSSSSBBBBB..',
+    '....SSSSSSSSS...',
+    '.....SSSSSSS....',
+    '....BBBRRBB.....',
+    '...BBBBRRBBBB...',
+    '..BBBBBRRBBBBB..',
+    '.BBBBBBRRBBBBBB.',
+    '.BBBBBRRRRBBBBB.',
+    '.BBBBRYRRYRBBBB.',
+    '.SSBBRRRRRRBBSS.',
+    'SSSSRRRRRRRRSSSS',
+    'SSSRRRRRRRRRRSSS',
+    '.SSRRRRRRRRRRSS.',
+    '...RRRRRRRRRR...',
+    '...RRRRRRRRRR...',
+  ];
+  const BIG_LEGS = {
+    stand: [
+      '...RRRRRRRRRR...',
+      '..RRRRR..RRRRR..',
+      '..RRRR....RRRR..',
+      '..RRRR....RRRR..',
+      '..RRRR....RRRR..',
+      '..RRRR....RRRR..',
+      '.BBBBB....BBBBB.',
+      'BBBBBB....BBBBBB',
+      'BBBBBB....BBBBBB',
+    ],
+    walkA: [
+      '...RRRRRRRRRR...',
+      '..RRRRRRRRRRRR..',
+      '.RRRRR....RRRRR.',
+      'RRRRR......RRRR.',
+      'RRRR........RRR.',
+      'RRR.........BBBB',
+      'BBB.........BBBB',
+      'BBBB.........BBB',
+      '.BBBB...........',
+    ],
+    walkB: [
+      '....RRRRRRRR....',
+      '....RRRRRRRR....',
+      '.....RRRRRR.....',
+      '.....RRRRRR.....',
+      '.....RRRRRR.....',
+      '.....RRRRRR.....',
+      '....BBBBBBB.....',
+      '...BBBBBBBB.....',
+      '...BBBBBBBBB....',
+    ],
+    jump: [
+      '...RRRRRRRRRR...',
+      '..RRRRRRRRRRRR..',
+      '..RRRRR..RRRRRBB',
+      '.RRRRR....RRRBBB',
+      '.RRRR......RRBBB',
+      'BBBB.........BB.',
+      'BBBB............',
+      'BBB.............',
+      '................',
+    ],
+  };
+  const bigRows = ['stand', 'walkA', 'walkB', 'jump'].map(k => BIG_UPPER.concat(BIG_LEGS[k]));
   const SPR = {
     small: smallRows.map(r => makeSprite(r, MARIO_PAL)),
     big: bigRows.map(r => makeSprite(r, MARIO_PAL)),
@@ -608,7 +672,7 @@
     return {
       x, y: GROUND_Y - 14, w: 12, h: 14, vx: 0, vy: 0,
       big: false, onGround: true, facing: 1, anim: 0, coyote: 0,
-      invuln: 0, growT: 0, skid: false, hidden: false, prevBottom: 0,
+      invuln: 0, growT: 0, runT: 0, skid: false, hidden: false, prevBottom: 0,
     };
   }
 
@@ -834,8 +898,14 @@
   function updatePlayer() {
     const p = player;
     const L = input.left, R = input.right;
-    const maxV = input.run ? 2.6 : 1.5;
-    const acc = p.onGround ? (input.run ? 0.09 : 0.07) : 0.06;
+    // 自动加速：朝同一方向持续前进约 0.5 秒后开始提速，约 1.2 秒达到跑步速度；
+    // 松开方向、反向或撞墙都会重新计时（空中保持不变）
+    const dir = R && !L ? 1 : L && !R ? -1 : 0;
+    if (dir === 0 || dir !== Math.sign(p.vx || dir)) { if (p.onGround) p.runT = 0; }
+    else p.runT++;
+    const runK = Math.max(0, Math.min(1, (p.runT - 30) / 40));
+    const maxV = 1.5 + runK * 1.1;
+    const acc = p.onGround ? 0.07 + runK * 0.02 : 0.06;
 
     if (R && !L) {
       if (p.onGround) p.facing = 1;
@@ -872,7 +942,7 @@
 
     p.prevBottom = p.y + p.h;
     p.x += p.vx;
-    if (collideX(p)) p.vx = 0;
+    if (collideX(p)) { p.vx = 0; p.runT = 0; }
     if (p.x < camX) { p.x = camX; if (p.vx < 0) p.vx = 0; }
 
     p.y += p.vy;
@@ -1414,7 +1484,7 @@
         text('▶ 点击屏幕 / 按回车 开始', mid, 140, { size: 9, align: 'center' });
       }
       const touchUI = document.body.classList.contains('touch');
-      text(touchUI ? '◀ ▶ 移动   A 跳跃   B 加速(按住)' : '←→ 移动   Z/空格 跳跃   X/Shift 加速   P 暂停',
+      text(touchUI ? '◀ ▶ 移动(一直走会自动加速)   A 跳跃' : '←→ 移动(一直走会自动加速)   Z/空格 跳跃   P 暂停',
         mid, 158, { size: 7, align: 'center', color: '#fcfcfc' });
     } else if (game.state === 'clear') {
       const w = Math.min(200, VIEW_W - 24), h = 70;
