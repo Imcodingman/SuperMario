@@ -120,6 +120,9 @@
       hurry: () => seq([84, 0, 84, 0, 84], 0.07, { vol: 0.05 }),
       gameover: () => seq([67, 0, 64, 0, 60, 55, 52, 48], 0.16, { type: 'triangle', vol: 0.2 }),
       pause: () => seq([76, 72, 76, 72], 0.06, { vol: 0.05 }),
+      fire: () => { tone(220, 0.3, { slide: 70, type: 'sawtooth', vol: 0.04 }); noise(0.2, 0.08); },
+      bridge: () => tone(120, 0.06, { type: 'triangle', vol: 0.25 }),
+      bossFall: () => tone(500, 1.2, { slide: 45, type: 'triangle', vol: 0.2 }),
     };
 
     // ---- 原创背景音乐循环 ----
@@ -138,6 +141,11 @@
         mel: [74, 0, 78, 0, 81, 0, 78, 0, 76, 0, 79, 0, 83, 0, 79, 0,
           74, 78, 81, 86, 85, 81, 78, 76, 74, 0, 69, 0, 74, 0, 0, 0],
         roots: [50, 55, 57, 50], bass: [0, 0, 7, 0, 12, 0, 7, 0], step: 0.18,
+      },
+      { // 城堡（低沉、紧张）
+        mel: [57, 0, 0, 56, 57, 0, 0, 56, 57, 0, 60, 0, 59, 0, 56, 0,
+          57, 0, 0, 56, 57, 0, 0, 56, 57, 0, 62, 0, 60, 0, 59, 0],
+        roots: [45, 45, 44, 45], bass: [0, 0, 0, 0, 12, 0, 0, 0], step: 0.16,
       },
     ];
     let song = SONGS[0];
@@ -589,6 +597,70 @@
     return c;
   }
   const UG_MAP = { '#c84c0c': '#2a5fc0', '#fcbcb0': '#a8d8fc' };
+  // 乌龟：头朝右绘制，向左走时用镜像
+  const KOOPA_PAL = { G: '#00a800', L: '#80d010', W: '#fcfcfc', Y: '#fcbc3c', K: '#000', O: '#e45c10' };
+  const KOOPA_TOP = [
+    '..........YYY...',
+    '.........YYYYY..',
+    '.........YWKYY..',
+    '.........YWKYYY.',
+    '.........YYYYYY.',
+    '..........YYYYYY',
+    '..........YYYY..',
+    '...........YYY..',
+    '.....GGGG..YYY..',
+    '...GGLLGGG.YYY..',
+    '..GGLGGLGGGYY...',
+    '.GLGGGGGGLGYY...',
+    '.GGGGLLGGGGWY...',
+    'GLGGLGGLGGLWW...',
+    'GGGLGGGGLGGGW...',
+    'GLGGGGGGGGLGW...',
+    '.GGLLGGLLGGW....',
+    '.WWWWWWWWWWW....',
+    '..WWWWWWWWW.....',
+  ];
+  SPR.koopa = [
+    makeSprite(KOOPA_TOP.concat([
+      '...YYY..YYY.....',
+      '...YYY..YYY.....',
+      '..OOOO..OOOO....',
+      '..OOOOO.OOOOO...',
+      '................',
+    ]), KOOPA_PAL),
+    makeSprite(KOOPA_TOP.concat([
+      '....YYYYYY......',
+      '....YYYYY.......',
+      '...OOOOOOO......',
+      '...OOOOOOOO.....',
+      '................',
+    ]), KOOPA_PAL),
+  ];
+  SPR.shell = makeSprite([
+    '................',
+    '................',
+    '.....GGGGGG.....',
+    '...GGLGGGGLGG...',
+    '..GLGGLLLLGGLG..',
+    '.GGGLGGGGGGLGGG.',
+    '.GLGGGLLLLGGGLG.',
+    'GGGGLGGGGGGLGGGG',
+    'GLGGGGLLLLGGGGLG',
+    'GGGLLGGGGGGLLGGG',
+    '.WWWWWWWWWWWWWW.',
+    'WWWWWWWWWWWWWWWW',
+    '.WWWWWWWWWWWWWW.',
+    '..WWWWWWWWWWWW..',
+    '................',
+    '................',
+  ], KOOPA_PAL);
+
+  const CS_MAP = { '#c84c0c': '#7c7c7c', '#fcbcb0': '#c8c8c8' };
+  const TILE_CS = {
+    ground: recolor(TILE.ground, CS_MAP),
+    brick: recolor(TILE.brick, CS_MAP),
+    hard: recolor(TILE.hard, CS_MAP),
+  };
   const TILE_UG = {
     ground: recolor(TILE.ground, UG_MAP),
     brick: recolor(TILE.brick, UG_MAP),
@@ -650,7 +722,7 @@
   // 图块编号
   const E = 0, GROUND = 1, BRICK = 2, QCOIN = 3, QMUSH = 4, USED = 5, HARD = 6,
     PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11, COIN = 12,
-    TREE_L = 13, TREE_M = 14, TREE_R = 15, TRUNK = 16;
+    TREE_L = 13, TREE_M = 14, TREE_R = 15, TRUNK = 16, LAVA = 17, BRIDGE = 18, AXE = 19;
   const tiles = new Uint8Array(LW * LH);
   const coinBricks = new Map();
 
@@ -660,7 +732,7 @@
     if (x < 0 || x >= LW) return true;
     if (y < 0 || y >= LH) return false;
     const t = tiles[y * LW + x];
-    return t !== E && t !== COIN && t !== TRUNK;
+    return t !== E && t !== COIN && t !== TRUNK && t !== LAVA && t !== AXE;
   };
 
   // ---- 搭建关卡用的小工具 ----
@@ -887,6 +959,97 @@
     },
   });
 
+  LEVELS.push({
+    name: '1-4',
+    song: 0,
+    ugEnd: 0,
+    sky: '#141e4c',     // 夜空
+    stars: true,
+    checkpoint: [90, 12],
+    deco: DECO_1.filter(d => d.k !== 'cloud'),
+    // 第三项 'koopa' 表示乌龟，不写就是栗子怪
+    enemies: [
+      [20, 12, 'koopa'], [30, 12], [52, 7, 'koopa'], [58, 12, 'koopa'],
+      [62, 12], [63.5, 12], [65, 12], [80, 12], [88, 12, 'koopa'],
+      [110, 12, 'koopa'], [114, 12], [125, 12, 'koopa'], [127, 12, 'koopa'],
+      [135, 12], [136.5, 12], [138, 12], [156, 12, 'koopa'],
+      [165, 12], [166.5, 12], [176, 12, 'koopa'], [180, 12],
+    ],
+    build() {
+      groundWithGaps([[40, 42], [95, 97], [150, 152]]);
+      row([10, 11, 13, 14], 9, BRICK);
+      setT(12, 9, QMUSH);
+      setT(12, 5, QCOIN);
+      pipe(24, 2);
+      pipe(34, 3);
+
+      // 高处砖块平台，上面的乌龟被踩成壳后会掉下来
+      row(range(47, 56), 8, BRICK);
+      row(range(49, 54), 5, COIN);
+
+      stairs(70, [1, 2, 3, 4]);
+      stairs(74, [4, 3, 2, 1]);
+      row([82, 84], 9, QCOIN);
+      setT(83, 9, QMUSH);
+
+      pipe(104, 4);
+      row(range(108, 114), 9, BRICK);
+      setT(111, 9, BRICK_COINS);
+      row(range(108, 114), 5, COIN);
+      pipe(118, 3);
+
+      row([142, 144, 146], 9, QCOIN);
+      row([143, 145], 9, BRICK);
+      pipe(160, 2);
+      pipe(170, 3);
+
+      stairs(186, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+      setT(FLAG_X, 12, HARD);
+    },
+  });
+
+  LEVELS.push({
+    name: '1-5',
+    song: 3,
+    ugEnd: 0,
+    theme: 'castle',
+    checkpoint: [100, 12],
+    deco: [],
+    enemies: [[57, 12], [74, 12], [97, 12], [128, 12, 'koopa'], [145, 12], [155, 12]],
+    // 旋转火焰棍：[中心列, 中心行, 火球数, 方向(1 顺时针 / -1 逆时针)]
+    firebars: [
+      [26, 9, 6, 1], [45, 12, 5, -1], [66, 7, 5, 1], [108, 9, 6, 1],
+      [120, 12, 5, 1], [126, 8, 6, -1], [150, 9, 6, 1], [160, 12, 5, -1], [168, 9, 6, 1],
+    ],
+    platforms: [{ x: 81, y: 10, axis: 'x', min: 81, max: 89 }],
+    // 终点吊桥上的魔王：出生列和巡逻范围
+    boss: { x: 186, min: 181, max: 190 },
+    build() {
+      const lavaPits = [[13, 15], [31, 34], [51, 54], [81, 92], [111, 114], [134, 136], [180, 192]];
+      for (let x = 0; x < LW; x++) {
+        const lava = lavaPits.some(([a, b]) => x >= a && x <= b);
+        setT(x, 13, lava ? LAVA : GROUND);
+        setT(x, 14, lava ? LAVA : GROUND);
+        setT(x, 0, BRICK);
+        setT(x, 1, BRICK);
+      }
+      setT(18, 9, QMUSH);
+      // 低矮的天花板
+      for (let x = 60; x <= 72; x++) for (let y = 2; y <= 6; y++) setT(x, y, BRICK);
+      setT(104, 9, QMUSH);
+      // 岩浆两边的石柱
+      stairs(131, [2, 3, 4]);
+      stairs(137, [4, 3, 2]);
+      // 上吊桥前的台阶
+      stairs(172, [1, 2, 3, 4, 4, 4, 4, 4]);
+      row(range(180, 192), 9, BRIDGE);
+      setT(193, 8, AXE);
+      for (let x = 193; x < LW; x++) for (let y = 9; y <= 12; y++) setT(x, y, HARD);
+      // 火焰棍的中心方块
+      for (const [x, y] of this.firebars) setT(x, y, USED);
+    },
+  });
+
   function buildLevel() {
     tiles.fill(E);
     coinBricks.clear();
@@ -913,6 +1076,9 @@
   let items = [];
   let effects = [];
   let platforms = [];
+  let firebars = [];
+  let boss = null;
+  let hazards = [];   // 魔王喷出的火球
   const bumps = new Map();   // 图块索引 -> 顶起动画帧
 
   function newPlayer(x) {
@@ -954,8 +1120,17 @@
       x: d.x * T, y: d.y * T, w: 3 * T, h: 8, axis: d.axis,
       min: d.min * T, max: d.max * T, speed: 0.6, dir: 1, dx: 0, dy: 0,
     }));
-    enemies = lv.enemies.map(([tx, ty]) => ({
-      x: tx * T + 1, y: ty * T + 2, w: 14, h: 14, vx: -0.5, vy: 0,
+    firebars = (lv.firebars || []).map(([x, y, len, dir]) => ({ cx: x * T + 8, cy: y * T + 8, len, dir, a: 0 }));
+    hazards = [];
+    boss = lv.boss ? {
+      x: lv.boss.x * T, y: 9 * T - 30, w: 28, h: 30, vx: -0.5, vy: 0,
+      minX: lv.boss.min * T, maxX: lv.boss.max * T, face: -1, t: 0,
+      hopT: 120, fireT: 90, mouthT: 0, active: false, onGround: false,
+    } : null;
+    game.axePhase = 0;
+    enemies = lv.enemies.map(([tx, ty, type = 'goomba']) => ({
+      type, x: tx * T + 1, y: type === 'koopa' ? ty * T - 6 : ty * T + 2,
+      w: 14, h: type === 'koopa' ? 22 : 14, vx: -0.5, vy: 0, kickT: 0, shellCombo: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
     }));
     game.time = 400;
@@ -978,6 +1153,9 @@
     player = newPlayer(40);
     enemies = [];
     platforms = [];
+    firebars = [];
+    hazards = [];
+    boss = null;
     items = [];
     effects = [];
     bumps.clear();
@@ -995,7 +1173,7 @@
   }
 
   function togglePause() {
-    if (!['play', 'flag', 'dying'].includes(game.state)) return;
+    if (!['play', 'flag', 'dying', 'axe'].includes(game.state)) return;
     paused = !paused;
     Sound.init();
     if (paused) { Sound.stopBgm(); Sound.sfx.pause(); }
@@ -1068,7 +1246,7 @@
   function hitFromBelow(tx, ty) {
     const top = ty * T;
     for (const e of enemies) {
-      if (e.state !== 'walk' || !e.active) continue;
+      if ((e.state !== 'walk' && e.state !== 'shell') || !e.active) continue;
       if (Math.abs(e.y + e.h - top) < 4 && e.x + e.w > tx * T && e.x < tx * T + T) {
         e.state = 'flip';
         e.vy = -3.5;
@@ -1197,6 +1375,15 @@
     }
   }
 
+  function touchesTile(e, id) {
+    const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + e.w - 0.001) / T);
+    const y0 = Math.floor(e.y / T), y1 = Math.floor((e.y + e.h - 0.001) / T);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) if (getT(tx, ty) === id) return true;
+    }
+    return false;
+  }
+
   function updatePlayer() {
     const p = player;
     // 站在升降平台上时跟着平台移动
@@ -1284,59 +1471,226 @@
     if (p.invuln > 0) p.invuln--;
     if (p.x > LEVELS[game.level].checkpoint[0] * T) game.checkpoint = true;
     collectCoins(p);
+    if (touchesTile(p, LAVA)) { killPlayer(false); return; }
+    if (touchesTile(p, AXE)) { startAxe(); return; }
 
     if (p.y > VIEW_H + 8) { killPlayer(true); return; }
-    if (p.x + p.w >= FLAG_X * T + 6) startFlag();
+    if (!LEVELS[game.level].boss && p.x + p.w >= FLAG_X * T + 6) startFlag();
   }
 
   // ============================================================
   // 敌人 / 道具 / 特效
   // ============================================================
+  const STOMP_PTS = [100, 200, 400, 500, 800, 1000, 2000, 4000, 5000, 8000];
+  const SHELL_PTS = [500, 800, 1000, 2000, 4000, 5000, 8000];
+
+  function stompBounce(p, e) {
+    p.y = e.y - p.h;
+    p.vy = input.jump ? -5.2 : -3.5;
+  }
+
   function updateEnemies() {
     const p = player;
     for (const e of enemies) {
       if (e.remove) continue;
       if (e.x < camX - 64 || e.y > VIEW_H + 32) { e.remove = true; continue; }
+      if (e.state === 'slide' && e.x > camX + VIEW_W + 160) { e.remove = true; continue; }
       if (!e.active) {
         if (e.x < camX + VIEW_W + 24) e.active = true; else continue;
       }
       if (e.state === 'squish') { if (--e.t <= 0) e.remove = true; continue; }
       if (e.state === 'flip') { e.vy += 0.3; e.x += e.vx; e.y += e.vy; continue; }
 
+      // 静止的龟壳过一会儿会重新钻出乌龟
+      if (e.state === 'shell' && ++e.t > 420) {
+        e.state = 'walk';
+        e.y -= 8;
+        e.h = 22;
+        e.vx = p.x < e.x ? -0.5 : 0.5;
+      }
+
       e.vy = Math.min(e.vy + 0.3, 5);
       e.x += e.vx;
-      if (collideX(e)) e.vx = -e.vx;
+      if (collideX(e)) {
+        e.vx = -e.vx;
+        if (e.state === 'slide' && e.x < camX + VIEW_W) Sound.sfx.bump();
+      }
       e.y += e.vy;
       const r = collideY(e);
       if (r && r.floor) e.vy = 0;
       e.anim++;
+      if (e.kickT > 0) e.kickT--;
 
-      // 敌人之间相互掉头
-      for (const o of enemies) {
-        if (o === e || o.state !== 'walk' || !o.active || o.remove) continue;
-        if (overlap(e, o)) {
-          if (e.x < o.x) { e.vx = -Math.abs(e.vx); o.vx = Math.abs(o.vx); }
-          else { e.vx = Math.abs(e.vx); o.vx = -Math.abs(o.vx); }
+      if (e.state === 'walk') {
+        // 敌人之间相互掉头
+        for (const o of enemies) {
+          if (o === e || o.state !== 'walk' || !o.active || o.remove) continue;
+          if (overlap(e, o)) {
+            if (e.x < o.x) { e.vx = -Math.abs(e.vx); o.vx = Math.abs(o.vx); }
+            else { e.vx = Math.abs(e.vx); o.vx = -Math.abs(o.vx); }
+          }
+        }
+      } else if (e.state === 'slide') {
+        // 滑行的龟壳撞倒沿途的敌人
+        for (const o of enemies) {
+          if (o === e || !o.active || o.remove) continue;
+          if (o.state !== 'walk' && o.state !== 'shell' && o.state !== 'slide') continue;
+          if (!overlap(e, o)) continue;
+          o.state = 'flip';
+          o.vy = -3.5;
+          o.vx = Math.sign(e.vx) * 0.8;
+          addScore(SHELL_PTS[Math.min(e.shellCombo++, SHELL_PTS.length - 1)], o.x, o.y - 8);
+          Sound.sfx.kick();
         }
       }
 
-      if (overlap(p, e)) {
-        if (p.vy >= 0 && p.prevBottom <= e.y + 5) {
+      if (!overlap(p, e)) continue;
+      const fromAbove = p.vy >= 0 && p.prevBottom <= e.y + 5;
+      if (e.state === 'shell') {
+        // 碰到静止的龟壳就把它踢出去
+        const dir = p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1;
+        e.state = 'slide';
+        e.vx = 3.2 * dir;
+        e.kickT = 12;
+        e.shellCombo = 0;
+        addScore(400, e.x, e.y - 8);
+        Sound.sfx.kick();
+        if (fromAbove) stompBounce(p, e);
+      } else if (fromAbove) {
+        if (e.type === 'koopa') {
+          if (e.state === 'walk') { e.y += 8; e.h = 14; }
+          e.state = 'shell';
+          e.vx = 0;
+          e.t = 0;
+        } else {
           e.state = 'squish';
           e.t = 30;
-          const pts = [100, 200, 400, 500, 800, 1000, 2000, 4000, 5000, 8000][Math.min(game.combo, 9)];
-          game.combo++;
-          addScore(pts, e.x, e.y - 8);
-          p.y = e.y - p.h;
-          p.vy = input.jump ? -5.2 : -3.5;
-          Sound.sfx.stomp();
-        } else {
-          hurtPlayer();
-          if (game.state !== 'play') return;
         }
+        addScore(STOMP_PTS[Math.min(game.combo++, STOMP_PTS.length - 1)], e.x, e.y - 8);
+        stompBounce(p, e);
+        Sound.sfx.stomp();
+      } else if (!(e.state === 'slide' && e.kickT > 0)) {
+        hurtPlayer();
+        if (game.state !== 'play') return;
       }
     }
     enemies = enemies.filter(e => !e.remove);
+  }
+
+  // ---- 城堡关：火焰棍、魔王、魔王火球 ----
+  function updateFirebars() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const fb of firebars) {
+      fb.a += 0.03 * fb.dir;
+      if (Math.abs(fb.cx - (p.x + p.w / 2)) > fb.len * 8 + 24) continue;
+      for (let i = 1; i < fb.len; i++) {
+        const bx = fb.cx + Math.cos(fb.a) * i * 8;
+        const by = fb.cy + Math.sin(fb.a) * i * 8;
+        if (bx > p.x - 3 && bx < p.x + p.w + 3 && by > p.y - 3 && by < p.y + p.h + 3) {
+          hurtPlayer();
+          return;
+        }
+      }
+    }
+  }
+
+  function updateBoss() {
+    const b = boss;
+    if (!b || game.state !== 'play') return;
+    if (!b.active) { if (b.x < camX + VIEW_W) b.active = true; else return; }
+    const p = player;
+    b.t++;
+    b.face = p.x + p.w / 2 < b.x + b.w / 2 ? -1 : 1;
+    b.x += b.vx;
+    if (b.x < b.minX) { b.x = b.minX; b.vx = Math.abs(b.vx); }
+    else if (b.x > b.maxX) { b.x = b.maxX; b.vx = -Math.abs(b.vx); }
+    else if (b.t % 90 === 0 && Math.random() < 0.5) b.vx = -b.vx;
+    b.vy = Math.min(b.vy + 0.3, 6);
+    b.y += b.vy;
+    const r = collideY(b);
+    b.onGround = !!(r && r.floor);
+    if (b.onGround) b.vy = 0;
+    if (b.onGround && --b.hopT <= 0) { b.vy = -4.5; b.hopT = 100 + Math.floor(Math.random() * 80); }
+    if (b.mouthT > 0) b.mouthT--;
+    if (--b.fireT <= 0) {
+      b.fireT = 140 + Math.floor(Math.random() * 60);
+      if (Math.abs(p.x - b.x) < 14 * T) {
+        hazards.push({ x: b.face < 0 ? b.x - 12 : b.x + b.w, y: b.y + 6, w: 12, h: 6, vx: 1.6 * b.face, t: 0 });
+        b.mouthT = 24;
+        Sound.sfx.fire();
+      }
+    }
+    if (overlap(p, b)) hurtPlayer();
+  }
+
+  function updateHazards() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const h of hazards) {
+      h.t++;
+      h.x += h.vx;
+      // 火球会慢慢对准玩家的高度
+      const ty = p.y + p.h / 2 - h.h / 2;
+      h.y += Math.max(-0.4, Math.min(0.4, ty - h.y));
+      if (h.x < camX - 32 || h.x > camX + VIEW_W + 32) h.remove = true;
+      if (overlap(p, h)) { hurtPlayer(); if (game.state !== 'play') return; }
+    }
+    hazards = hazards.filter(h => !h.remove);
+  }
+
+  // 碰到斧头：吊桥从右往左断掉，魔王掉进岩浆
+  function startAxe() {
+    const p = player;
+    game.state = 'axe';
+    game.axePhase = 0;
+    game.stateT = 0;
+    p.vx = 0;
+    p.vy = 0;
+    p.plat = null;
+    hazards = [];
+    for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) if (getT(x, y) === AXE) setT(x, y, E);
+    Sound.stopBgm();
+  }
+
+  function updateAxe() {
+    const b = boss;
+    game.stateT++;
+    if (game.axePhase === 0) {
+      if (game.stateT % 4 === 0) {
+        let removed = false;
+        for (let x = LW - 1; x >= 0 && !removed; x--) {
+          if (getT(x, 9) === BRIDGE) { setT(x, 9, E); removed = true; }
+        }
+        if (removed) Sound.sfx.bridge();
+        else { game.axePhase = 1; game.stateT = 0; Sound.sfx.bossFall(); }
+      }
+    } else if (game.axePhase === 1) {
+      if (!b || b.y > VIEW_H + 40) {
+        game.axePhase = 2;
+        game.stateT = 0;
+        if (b) addScore(5000, b.x, VIEW_H - 40);
+        Sound.sfx.clear();
+      }
+    } else if (game.axePhase === 2) {
+      if (game.stateT > 120) { game.axePhase = 3; game.stateT = 0; }
+    } else {
+      tally();
+    }
+    if (b) {
+      b.vy = Math.min(b.vy + 0.3, 6);
+      b.y += b.vy;
+      if (game.axePhase === 0) { const r = collideY(b); if (r && r.floor) b.vy = 0; }
+    }
+    // 玩家原地落到地面上
+    const p = player;
+    p.vy = Math.min(p.vy + 0.4, 5);
+    p.y += p.vy;
+    const pr = collideY(p);
+    p.onGround = !!(pr && pr.floor);
+    if (p.onGround) p.vy = 0;
+    updateEffects();
+    updateCamera();
   }
 
   function updateItems() {
@@ -1442,27 +1796,31 @@
         game.stateT = 0;
       }
     } else if (game.flagPhase === 3) {
-      // 剩余时间换算分数
-      if (game.time > 0) {
-        const d = Math.min(game.time, 2);
-        game.time -= d;
-        game.score += d * 50;
-        if (game.stateT % 3 === 0) Sound.sfx.tick();
-      } else if (game.stateT > 60) {
-        saveBest();
-        if (game.level < LEVELS.length - 1) {
-          game.level++;
-          game.checkpoint = false;
-          game.carryBig = player.big;
-          startIntro();
-        } else {
-          game.state = 'clear';
-          game.stateT = 0;
-        }
-      }
+      tally();
     }
     updateEffects();
     updateCamera();
+  }
+
+  // 剩余时间换算分数，然后进入下一关或全部通关
+  function tally() {
+    if (game.time > 0) {
+      const d = Math.min(game.time, 2);
+      game.time -= d;
+      game.score += d * 50;
+      if (game.stateT % 3 === 0) Sound.sfx.tick();
+    } else if (game.stateT > 60) {
+      saveBest();
+      if (game.level < LEVELS.length - 1) {
+        game.level++;
+        game.checkpoint = false;
+        game.carryBig = player.big;
+        startIntro();
+      } else {
+        game.state = 'clear';
+        game.stateT = 0;
+      }
+    }
   }
 
   function saveBest() {
@@ -1503,6 +1861,9 @@
         if (game.state !== 'play') break;
         updateItems();
         updateEnemies();
+        updateFirebars();
+        updateBoss();
+        updateHazards();
         updateEffects();
         updateCamera();
         break;
@@ -1525,6 +1886,9 @@
       }
       case 'flag':
         updateFlag();
+        break;
+      case 'axe':
+        updateAxe();
         break;
     }
   }
@@ -1629,16 +1993,17 @@
   }
 
   function tileImage(t, tx) {
-    const ug = tx < LEVELS[game.level].ugEnd;
+    const lv = LEVELS[game.level];
+    const set = lv.theme === 'castle' ? TILE_CS : tx < lv.ugEnd ? TILE_UG : TILE;
     switch (t) {
-      case GROUND: return ug ? TILE_UG.ground : TILE.ground;
-      case BRICK: case BRICK_COINS: return ug ? TILE_UG.brick : TILE.brick;
+      case GROUND: return set.ground;
+      case BRICK: case BRICK_COINS: return set.brick;
       case QCOIN: case QMUSH: {
         const seq = [0, 0, 0, 0, 1, 2, 2, 1];
         return TILE.q[seq[Math.floor(game.frame / 8) % seq.length]];
       }
       case USED: return TILE.used;
-      case HARD: return ug ? TILE_UG.hard : TILE.hard;
+      case HARD: return set.hard;
       case PTL: return TILE.pipeTL;
       case PTR: return TILE.pipeTR;
       case PL: return TILE.pipeL;
@@ -1659,10 +2024,139 @@
         const t = tiles[ty * LW + tx];
         if (!t) continue;
         if (t === COIN) { drawCoin(tx * T - cx + 4, ty * T + 1, game.frame * 0.08 + tx); continue; }
+        if (t === LAVA) { drawLava(tx * T - cx, ty * T, getT(tx, ty - 1) !== LAVA); continue; }
+        if (t === BRIDGE) { drawBridge(tx * T - cx, ty * T); continue; }
+        if (t === AXE) { drawAxe(tx * T - cx, ty * T); continue; }
         const b = bumps.get(ty * LW + tx);
         const off = b !== undefined ? -Math.round(Math.sin(b / 10 * Math.PI) * 5) : 0;
         ctx.drawImage(tileImage(t, tx), tx * T - cx, ty * T + off);
       }
+    }
+  }
+
+  function drawLava(x, y, surface) {
+    ctx.fillStyle = '#e44800';
+    ctx.fillRect(x, y + (surface ? 3 : 0), T, T - (surface ? 3 : 0));
+    ctx.fillStyle = '#b82800';
+    ctx.fillRect(x + ((game.frame >> 3) + x) % 12, y + 9, 4, 3);
+    if (surface) {
+      ctx.fillStyle = '#fca044';
+      for (let k = 0; k < 4; k++) ctx.fillRect(x + ((k * 4 + (game.frame >> 2)) % 16), y + 2, 3, 2);
+    }
+  }
+
+  function drawBridge(x, y) {
+    ctx.fillStyle = '#9c9c9c';
+    for (let i = 0; i < 4; i++) ctx.fillRect(x + i * 4 + 1, y, 2, 3);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, y + 4, T, 9);
+    ctx.fillStyle = '#fca044';
+    ctx.fillRect(x, y + 5, T, 7);
+    ctx.fillStyle = '#c84c0c';
+    ctx.fillRect(x + 7, y + 5, 1, 7);
+    ctx.fillRect(x + 15, y + 5, 1, 7);
+  }
+
+  function drawAxe(x, y) {
+    const bob = Math.floor(game.frame / 20) % 2;
+    ctx.fillStyle = '#8c4c18';
+    ctx.fillRect(x + 7, y + 4 + bob, 3, 12);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x + 2, y + bob, 12, 9);
+    ctx.fillStyle = '#b0b0b0';
+    ctx.fillRect(x + 3, y + 1 + bob, 10, 7);
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(x + 3, y + 1 + bob, 3, 7);
+  }
+
+  function drawFireball(x, y, r) {
+    const flick = Math.floor(game.frame / 3) % 2;
+    ctx.fillStyle = '#e44800';
+    ctx.beginPath(); ctx.arc(x, y, r + flick * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fcd800';
+    ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawFirebars(cx) {
+    for (const fb of firebars) {
+      if (Math.abs(fb.cx - cx - VIEW_W / 2) > VIEW_W) continue;
+      for (let i = 0; i < fb.len; i++) {
+        drawFireball(fb.cx + Math.cos(fb.a) * i * 8 - cx, fb.cy + Math.sin(fb.a) * i * 8, 3.5);
+      }
+    }
+  }
+
+  function drawHazards(cx) {
+    for (const h of hazards) {
+      const x = h.x - cx, y = h.y;
+      ctx.fillStyle = '#e44800';
+      ctx.beginPath(); ctx.ellipse(x + 6, y + 3, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fcd800';
+      ctx.beginPath(); ctx.ellipse(x + 6 + Math.sign(h.vx) * 2, y + 3, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // 魔王：头朝右绘制，面向左时镜像
+  function drawBoss(cx) {
+    const b = boss;
+    if (!b || !b.active) return;
+    const x = Math.round(b.x - 2 - cx), y = Math.round(b.y - 2);
+    ctx.save();
+    ctx.translate(x + 16, y);
+    ctx.scale(b.face, 1);
+    ctx.translate(-16, 0);
+    // 腿
+    const s = Math.floor(b.t / 12) % 2;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(3 + s * 2, 24, 8, 8);
+    ctx.fillRect(14 - s * 2, 24, 8, 8);
+    ctx.fillStyle = '#9cc800';
+    ctx.fillRect(4 + s * 2, 25, 6, 6);
+    ctx.fillRect(15 - s * 2, 25, 6, 6);
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(9 + s * 2, 29, 2, 2);
+    ctx.fillRect(20 - s * 2, 29, 2, 2);
+    // 龟壳和尖刺
+    ctx.fillStyle = '#000';
+    ctx.fillRect(1, 6, 22, 20);
+    ctx.fillStyle = '#00a800';
+    ctx.fillRect(2, 7, 20, 18);
+    ctx.fillStyle = '#80d010';
+    ctx.fillRect(5, 10, 5, 5); ctx.fillRect(12, 10, 5, 5); ctx.fillRect(8, 17, 5, 5); ctx.fillRect(15, 17, 4, 4);
+    ctx.fillStyle = '#fcfcfc';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(2 + i * 5, 7); ctx.lineTo(4.5 + i * 5, 1); ctx.lineTo(7 + i * 5, 7); ctx.fill();
+    }
+    // 肚子
+    ctx.fillStyle = '#000';
+    ctx.fillRect(17, 11, 10, 15);
+    ctx.fillStyle = '#fcd8a8';
+    ctx.fillRect(18, 12, 8, 13);
+    // 头、角、鬃毛
+    ctx.fillStyle = '#e45c10';
+    ctx.fillRect(17, 0, 4, 10);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(19, 1, 13, 13);
+    ctx.fillStyle = '#9cc800';
+    ctx.fillRect(20, 2, 11, 11);
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(21, -2, 2, 4);
+    ctx.fillRect(27, -2, 2, 4);
+    ctx.fillRect(26, 4, 3, 3);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(28, 5, 1, 2);
+    ctx.fillStyle = '#e40000';
+    ctx.fillRect(25, 9, 7, b.mouthT > 0 ? 4 : 1);
+    ctx.restore();
+  }
+
+  function drawStars(cx) {
+    ctx.fillStyle = '#fcfcfc';
+    for (let i = 0; i < 90; i++) {
+      const sx = ((i * 211) % (LW * T) - cx * 0.5 + LW * T) % (VIEW_W + 40) - 20;
+      const sy = 30 + (i * 67) % 140;
+      const size = (i + (game.frame >> 5)) % 7 === 0 ? 2 : 1;
+      ctx.fillRect(Math.round(sx), sy, size, size);
     }
   }
 
@@ -1716,6 +2210,23 @@
       if (!e.active) continue;
       const x = Math.round(e.x - 1 - cx);
       const y = Math.round(e.y + e.h - 16);
+      if (e.type === 'koopa') {
+        if (e.state === 'walk') {
+          const spr = SPR.koopa[Math.floor(e.anim / 10) % 2];
+          ctx.drawImage(e.vx < 0 ? spr.l : spr.r, x, Math.round(e.y + e.h - 23));
+        } else if (e.state === 'flip') {
+          ctx.save();
+          ctx.translate(x, Math.round(e.y + e.h));
+          ctx.scale(1, -1);
+          ctx.drawImage(SPR.shell.r, 0, -2);
+          ctx.restore();
+        } else {
+          // 龟壳快复活时会抖动
+          const shake = e.state === 'shell' && e.t > 340 && game.frame % 4 < 2 ? 1 : 0;
+          ctx.drawImage(SPR.shell.r, x + shake, Math.round(e.y + e.h - 14));
+        }
+        continue;
+      }
       if (e.state === 'squish') {
         ctx.drawImage(SPR.goombaFlat.r, x, y + 10);
       } else if (e.state === 'flip') {
@@ -1762,7 +2273,7 @@
     text('世界', cols[2], 6);
     text(LEVELS[game.level].name, cols[2], 16);
     text('时间', cols[3], 6);
-    const showTime = ['play', 'dying', 'flag'].includes(game.state);
+    const showTime = ['play', 'dying', 'flag', 'axe'].includes(game.state);
     text(showTime ? pad(game.time, 3) : '', cols[3], 16, { color: game.time <= 100 && showTime ? '#fcbc3c' : '#fff' });
   }
 
@@ -1781,23 +2292,30 @@
 
   function drawWorld() {
     const cx = Math.floor(camX);
-    const ugEnd = LEVELS[game.level].ugEnd;
-    ctx.fillStyle = SKY;
+    const lv = LEVELS[game.level];
+    const ugEnd = lv.ugEnd;
+    ctx.fillStyle = lv.theme === 'castle' ? '#000' : lv.sky || SKY;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    if (lv.stars) drawStars(cx);
     if (ugEnd) {
       // 地下部分是黑色背景，出口之后是天空
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, Math.max(0, Math.min(VIEW_W, ugEnd * T - cx)), VIEW_H);
     }
     drawDeco(cx);
-    drawCastle(cx);
-    drawFlag(cx);
+    if (!lv.boss) {
+      drawCastle(cx);
+      drawFlag(cx);
+    }
     drawItems(cx, true);
     drawTiles(cx);
     drawPlatforms(cx);
     drawItems(cx, false);
     drawEnemies(cx);
+    drawBoss(cx);
     if (player) drawPlayer(cx);
+    drawFirebars(cx);
+    drawHazards(cx);
     drawEffects(cx);
   }
 
@@ -1883,5 +2401,5 @@
   requestAnimationFrame(loop);
 
   // 调试/测试钩子
-  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; } };
+  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; }, get boss() { return boss; }, get firebars() { return firebars; } };
 })();
