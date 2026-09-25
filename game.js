@@ -744,6 +744,12 @@
   ];
 
   const CS_MAP = { '#c84c0c': '#7c7c7c', '#fcbcb0': '#c8c8c8' };
+  const SN_MAP = { '#c84c0c': '#8cb4dc', '#fcbcb0': '#fcfcfc' };
+  const TILE_SN = {
+    ground: recolor(TILE.ground, SN_MAP),
+    brick: recolor(TILE.brick, SN_MAP),
+    hard: recolor(TILE.hard, SN_MAP),
+  };
   const TILE_CS = {
     ground: recolor(TILE.ground, CS_MAP),
     brick: recolor(TILE.brick, CS_MAP),
@@ -1233,6 +1239,101 @@
     },
   });
 
+  LEVELS.push({
+    name: '2-3',
+    song: 2,
+    ugEnd: 0,
+    theme: 'snow',
+    sky: '#b8d0ec',
+    snow: true,          // 飘雪
+    ice: true,           // 冰面打滑
+    time: 300,
+    enemySpeed: 0.8,
+    checkpoint: [94, 12],
+    deco: DECO_1.filter(d => d.k === 'cloud'),
+    // 'para' 是飞龟：一蹦一蹦地前进，踩一下掉翅膀变成普通乌龟
+    enemies: [
+      [20, 12], [21.5, 12], [30, 12, 'para'], [40, 12, 'koopa'], [50, 12], [55, 12, 'para'],
+      [64, 12], [65.5, 12], [67, 12, 'para'], [78, 12, 'koopa'], [84, 12, 'para'],
+      [106, 12], [107.5, 12], [114, 12, 'para'], [124, 12, 'koopa'], [126, 12, 'para'],
+      [136, 12], [137.5, 12], [150, 12, 'para'], [152, 12, 'koopa'], [164, 12],
+      [172, 12, 'para'], [181, 12, 'koopa'],
+    ],
+    piranhas: [16, 36, 58, 86, 118, 146, 170],
+    cannons: [[52, 12], [80, 11], [110, 12], [140, 11], [166, 12]],
+    platforms: [{ x: 98, y: 10, axis: 'x', min: 98, max: 100 }],
+    build() {
+      groundWithGaps([[24, 26], [44, 47], [70, 73], [98, 102], [130, 133], [156, 160], [176, 178]]);
+      row([6, 7, 9, 10], 9, BRICK);
+      setT(8, 9, QMUSH);
+      pipe(16, 2); pipe(36, 3); pipe(58, 4); pipe(86, 3); pipe(118, 2); pipe(146, 4); pipe(170, 2);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      row([90, 91, 93], 9, BRICK);
+      setT(92, 9, QMUSH);
+      row(range(44, 47), 8, COIN);
+      row(range(130, 133), 8, COIN);
+      row(range(156, 160), 7, COIN);
+      stairs(186, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+      setT(FLAG_X, 12, HARD);
+    },
+  });
+
+  LEVELS.push({
+    name: '2-4',
+    song: 3,
+    ugEnd: 0,
+    theme: 'castle',
+    time: 300,
+    enemySpeed: 0.8,
+    firebarSpeed: 0.05,
+    checkpoint: [105, 12],
+    deco: [],
+    enemies: [
+      [48, 12, 'koopa'], [52, 12], [66, 12], [67.5, 12], [88, 12, 'koopa'],
+      [112, 12], [130, 12, 'koopa'], [150, 12], [151.5, 12],
+    ],
+    // 第五项是起始角度：同一中心放两根、相差半圈，就是双头火焰棍
+    firebars: [
+      [16, 10, 6, 1, 0], [16, 10, 6, 1, Math.PI], [50, 12, 6, -1], [70, 9, 7, 1],
+      [90, 10, 6, 1, 0], [90, 10, 6, 1, Math.PI], [110, 12, 6, -1], [132, 8, 7, 1],
+      [154, 10, 6, -1, 0], [154, 10, 6, -1, Math.PI],
+    ],
+    podoboos: [10, 23, 40, 60, 80, 100, 122, 144, 163, 186],
+    cannons: [[30, 12], [114, 11], [169, 12]],
+    // 'fall' 是落下平台：站上去一会儿就往下掉
+    platforms: [
+      { x: 20, y: 10, axis: 'fall' }, { x: 24, y: 9, axis: 'fall' },
+      { x: 36, y: 10, axis: 'x', min: 36, max: 41 },
+      { x: 56, y: 10, axis: 'fall' }, { x: 60, y: 8, axis: 'fall' },
+      { x: 79, y: 8, axis: 'y', min: 6, max: 11 },
+      { x: 97, y: 10, axis: 'fall' }, { x: 101, y: 9, axis: 'fall' },
+      { x: 118, y: 9, axis: 'x', min: 118, max: 123 },
+      { x: 140, y: 10, axis: 'fall' }, { x: 144, y: 9, axis: 'fall' },
+      { x: 160, y: 10, axis: 'x', min: 160, max: 163 },
+    ],
+    boss: { x: 186, min: 181, max: 190, fireRate: 60, double: true, hop: 50, speed: 0.8 },
+    build() {
+      const lavaPits = [[8, 11], [20, 26], [36, 44], [56, 64], [76, 84], [96, 104], [118, 126], [140, 148], [160, 166], [180, 192]];
+      for (let x = 0; x < LW; x++) {
+        const lava = lavaPits.some(([a, b]) => x >= a && x <= b);
+        setT(x, 13, lava ? LAVA : GROUND);
+        setT(x, 14, lava ? LAVA : GROUND);
+        setT(x, 0, BRICK);
+        setT(x, 1, BRICK);
+      }
+      setT(33, 9, QMUSH);
+      setT(136, 9, QMUSH);
+      for (let x = 46; x <= 54; x++) for (let y = 2; y <= 6; y++) setT(x, y, BRICK);
+      for (let x = 128; x <= 138; x++) for (let y = 2; y <= 7; y++) setT(x, y, BRICK);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      stairs(172, [1, 2, 3, 4, 4, 4, 4, 4]);
+      row(range(180, 192), 9, BRIDGE);
+      setT(193, 8, AXE);
+      for (let x = 193; x < LW; x++) for (let y = 9; y <= 12; y++) setT(x, y, HARD);
+      for (const [x, y] of this.firebars) setT(x, y, USED);
+    },
+  });
+
   function buildLevel() {
     tiles.fill(E);
     coinBricks.clear();
@@ -1315,10 +1416,11 @@
     camX = Math.max(0, sx - 40);
     platforms = (lv.platforms || []).map(d => ({
       x: d.x * T, y: d.y * T, w: 3 * T, h: 8, axis: d.axis,
-      min: d.min * T, max: d.max * T, speed: 0.6, dir: 1, dx: 0, dy: 0,
+      min: (d.min || 0) * T, max: (d.max || 0) * T, speed: 0.6, dir: 1, dx: 0, dy: 0,
+      touched: false, t: 0, vy: 0,
     }));
-    firebars = (lv.firebars || []).map(([x, y, len, dir]) => ({
-      cx: x * T + 8, cy: y * T + 8, len, dir, a: 0, speed: lv.firebarSpeed || 0.03,
+    firebars = (lv.firebars || []).map(([x, y, len, dir, a0 = 0]) => ({
+      cx: x * T + 8, cy: y * T + 8, len, dir, a: a0, speed: lv.firebarSpeed || 0.03,
     }));
     hazards = [];
     piranhas = (lv.piranhas || []).map((x, i) => {
@@ -1330,15 +1432,15 @@
     bullets = [];
     podoboos = (lv.podoboos || []).map((x, i) => ({ x: x * T + 2, y: 15 * T, w: 12, h: 14, vy: 0, t: (i * 29) % 100 }));
     boss = lv.boss ? {
-      x: lv.boss.x * T, y: 9 * T - 30, w: 28, h: 30, vx: -0.5, vy: 0,
+      x: lv.boss.x * T, y: 9 * T - 30, w: 28, h: 30, vx: -(lv.boss.speed || 0.5), vy: 0,
       minX: lv.boss.min * T, maxX: lv.boss.max * T, face: -1, t: 0,
       hopT: 120, fireT: 90, mouthT: 0, active: false, onGround: false,
       fireRate: lv.boss.fireRate || 140, double: !!lv.boss.double, hop: lv.boss.hop || 100,
     } : null;
     game.axePhase = 0;
     enemies = lv.enemies.map(([tx, ty, type = 'goomba']) => ({
-      type, x: tx * T + 1, y: type === 'koopa' ? ty * T - 6 : ty * T + 2,
-      w: 14, h: type === 'koopa' ? 22 : 14, vx: -(lv.enemySpeed || 0.5), speed: lv.enemySpeed || 0.5,
+      type, x: tx * T + 1, y: type !== 'goomba' ? ty * T - 6 : ty * T + 2,
+      w: 14, h: type !== 'goomba' ? 22 : 14, vx: -(lv.enemySpeed || 0.5), speed: lv.enemySpeed || 0.5,
       vy: 0, kickT: 0, shellCombo: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
     }));
@@ -1590,6 +1692,12 @@
       if (pl.axis === 'x') {
         pl.x += pl.speed * pl.dir;
         if (pl.x >= pl.max) { pl.x = pl.max; pl.dir = -1; } else if (pl.x <= pl.min) { pl.x = pl.min; pl.dir = 1; }
+      } else if (pl.axis === 'fall') {
+        // 站上去 20 帧后开始下落
+        if (pl.touched && ++pl.t > 20) {
+          pl.vy = Math.min(pl.vy + 0.15, 4);
+          pl.y += pl.vy;
+        }
       } else {
         pl.y += pl.speed * pl.dir;
         if (pl.y >= pl.max) { pl.y = pl.max; pl.dir = -1; } else if (pl.y <= pl.min) { pl.y = pl.min; pl.dir = 1; }
@@ -1623,24 +1731,27 @@
     else p.runT++;
     const runK = Math.max(0, Math.min(1, (p.runT - 30) / 40));
     const maxV = 1.5 + runK * 1.1;
-    const acc = p.onGround ? 0.07 + runK * 0.02 : 0.09;   // 空中也能较快转向
+    // 冰面：起步慢、刹车更慢
+    const ice = LEVELS[game.level].ice && p.onGround;
+    const acc = p.onGround ? (0.07 + runK * 0.02) * (ice ? 0.5 : 1) : 0.09;   // 空中也能较快转向
+    const skidDec = ice ? 0.05 : 0.18;
 
     if (R && !L) {
       if (p.onGround) p.facing = 1;
-      if (p.vx < 0 && p.onGround) { p.vx += 0.18; p.skid = true; }
+      if (p.vx < 0 && p.onGround) { p.vx += skidDec; p.skid = true; }
       else { p.skid = false; if (p.vx < maxV) p.vx = Math.min(maxV, p.vx + acc); }
     } else if (L && !R) {
       if (p.onGround) p.facing = -1;
-      if (p.vx > 0 && p.onGround) { p.vx -= 0.18; p.skid = true; }
+      if (p.vx > 0 && p.onGround) { p.vx -= skidDec; p.skid = true; }
       else { p.skid = false; if (p.vx > -maxV) p.vx = Math.max(-maxV, p.vx - acc); }
     } else {
       p.skid = false;
       if (p.onGround) {
-        const f = 0.08;
+        const f = ice ? 0.015 : 0.08;
         p.vx = p.vx > 0 ? Math.max(0, p.vx - f) : Math.min(0, p.vx + f);
       }
     }
-    if (p.onGround && Math.abs(p.vx) > maxV) p.vx -= Math.sign(p.vx) * 0.04;
+    if (p.onGround && Math.abs(p.vx) > maxV) p.vx -= Math.sign(p.vx) * (ice ? 0.015 : 0.04);
 
     // 跳跃（带土狼时间与按键缓冲）
     if (p.onGround) p.coyote = 5; else if (p.coyote > 0) p.coyote--;
@@ -1684,6 +1795,7 @@
           p.vy = 0;
           p.onGround = true;
           p.plat = pl;
+          pl.touched = true;
           game.combo = 0;
           break;
         }
@@ -1742,7 +1854,10 @@
       }
       e.y += e.vy;
       const r = collideY(e);
-      if (r && r.floor) e.vy = 0;
+      if (r && r.floor) {
+        e.vy = 0;
+        if (e.type === 'para' && e.state === 'walk') e.vy = -4.2;   // 飞龟一落地就再跳
+      }
       e.anim++;
       if (e.kickT > 0) e.kickT--;
 
@@ -1770,7 +1885,8 @@
       }
 
       if (!overlap(p, e)) continue;
-      const fromAbove = p.vy >= 0 && p.prevBottom <= e.y + 5;
+      // 敌人正往上跳（飞龟）时，把它这一帧上升的距离也算作“从上面踩”
+      const fromAbove = p.vy >= 0 && p.prevBottom <= e.y + 5 + Math.max(0, -e.vy);
       if (e.state === 'shell') {
         // 碰到静止的龟壳就把它踢出去
         const dir = p.x + p.w / 2 < e.x + e.w / 2 ? 1 : -1;
@@ -1782,7 +1898,11 @@
         Sound.sfx.kick();
         if (fromAbove) stompBounce(p, e);
       } else if (fromAbove) {
-        if (e.type === 'koopa') {
+        if (e.type === 'para') {
+          // 飞龟被踩掉翅膀，变成普通乌龟
+          e.type = 'koopa';
+          e.vy = 0;
+        } else if (e.type === 'koopa') {
           if (e.state === 'walk') { e.y += 8; e.h = 14; }
           e.state = 'shell';
           e.vx = 0;
@@ -2303,7 +2423,7 @@
 
   function tileImage(t, tx) {
     const lv = LEVELS[game.level];
-    const set = lv.theme === 'castle' ? TILE_CS : tx < lv.ugEnd ? TILE_UG : TILE;
+    const set = lv.theme === 'castle' ? TILE_CS : lv.theme === 'snow' ? TILE_SN : tx < lv.ugEnd ? TILE_UG : TILE;
     switch (t) {
       case GROUND: return set.ground;
       case BRICK: case BRICK_COINS: return set.brick;
@@ -2515,10 +2635,13 @@
     for (const pl of platforms) {
       const x = Math.round(pl.x - cx), y = Math.round(pl.y);
       if (x > VIEW_W || x + pl.w < 0) continue;
+      const fall = pl.axis === 'fall';
+      const shake = fall && pl.touched && pl.t <= 20 && game.frame % 4 < 2 ? 1 : 0;
       ctx.fillStyle = '#000';
-      ctx.fillRect(x, y, pl.w, pl.h);
-      ctx.fillStyle = '#fca044';
-      ctx.fillRect(x + 1, y + 1, pl.w - 2, pl.h - 2);
+      ctx.fillRect(x + shake, y, pl.w, pl.h);
+      // 落下平台是灰白色，普通升降平台是橙色
+      ctx.fillStyle = fall ? '#d8d8d8' : '#fca044';
+      ctx.fillRect(x + 1 + shake, y + 1, pl.w - 2, pl.h - 2);
       ctx.fillStyle = '#fcd8a8';
       ctx.fillRect(x + 1, y + 1, pl.w - 2, 1);
       ctx.fillStyle = '#8c4c18';
@@ -2561,10 +2684,21 @@
       if (!e.active) continue;
       const x = Math.round(e.x - 1 - cx);
       const y = Math.round(e.y + e.h - 16);
-      if (e.type === 'koopa') {
+      if (e.type === 'koopa' || e.type === 'para') {
         if (e.state === 'walk') {
           const spr = SPR.koopa[Math.floor(e.anim / 10) % 2];
-          ctx.drawImage(e.vx < 0 ? spr.l : spr.r, x, Math.round(e.y + e.h - 23));
+          const ky = Math.round(e.y + e.h - 23);
+          ctx.drawImage(e.vx < 0 ? spr.l : spr.r, x, ky);
+          if (e.type === 'para') {
+            // 翅膀画在背后，上下扇动
+            const flap = Math.floor(e.anim / 6) % 2 ? 3 : 0;
+            const wx = e.vx < 0 ? x + 10 : x - 1;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(wx, ky + 5 + flap, 8, 9 - flap);
+            ctx.fillStyle = '#fcfcfc';
+            ctx.fillRect(wx + 1, ky + 6 + flap, 6, 7 - flap);
+            ctx.fillRect(wx + (e.vx < 0 ? 4 : 0), ky + 3 + flap, 3, 3);
+          }
         } else if (e.state === 'flip') {
           ctx.save();
           ctx.translate(x, Math.round(e.y + e.h));
@@ -2671,6 +2805,18 @@
     drawBullets(cx);
     drawPodoboos(cx);
     drawEffects(cx);
+    if (LEVELS[game.level].snow) drawSnow();
+  }
+
+  function drawSnow() {
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < 70; i++) {
+      const sp = 0.4 + (i % 4) * 0.15;
+      const x = ((i * 97 + game.frame * 0.3 + Math.sin((game.frame + i * 40) / 40) * 8) % (VIEW_W + 10) + VIEW_W + 10) % (VIEW_W + 10) - 5;
+      const y = (i * 53 + game.frame * sp) % (VIEW_H + 10) - 5;
+      const size = i % 3 === 0 ? 2 : 1;
+      ctx.fillRect(Math.round(x), Math.round(y), size, size);
+    }
   }
 
   function render() {
