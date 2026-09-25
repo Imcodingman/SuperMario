@@ -18,9 +18,32 @@
   let VIEW_W = 256;
   let SCALE = 3;
 
+  const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const IS_WECHAT = /MicroMessenger/i.test(navigator.userAgent);
+  // 强制横屏：微信等不跟随转屏的浏览器默认开启，也可以用 ⟳ 按钮手动切换
+  let forceLandscape = IS_WECHAT;
+  try {
+    const v = localStorage.getItem('smb_rotate');
+    if (v !== null) forceLandscape = v === '1';
+  } catch (e) { /* ignore */ }
+  let rotated = false;
+
   function resize() {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const app = document.getElementById('app');
+    const screenPortrait = window.innerHeight > window.innerWidth;
+    document.body.classList.toggle('show-rotate', screenPortrait);
+    rotated = IS_TOUCH && forceLandscape && screenPortrait;
+    document.body.classList.toggle('rotated', rotated);
+    if (rotated) {
+      // 页面顺时针转 90 度：宽高互换，手机逆时针横过来拿
+      app.style.width = window.innerHeight + 'px';
+      app.style.height = window.innerWidth + 'px';
+      app.style.left = window.innerWidth + 'px';
+    } else {
+      app.style.width = app.style.height = app.style.left = '';
+    }
+    const vw = rotated ? window.innerHeight : window.innerWidth;
+    const vh = rotated ? window.innerWidth : window.innerHeight;
     const portrait = vh > vw;
     VIEW_W = portrait ? 256 : Math.round(Math.min(Math.max(VIEW_H * vw / vh, 256), 400));
     const s = Math.min(vw / VIEW_W, (portrait ? vh * 0.48 : vh) / VIEW_H);
@@ -35,7 +58,7 @@
     if (portrait) {
       const bottom = canvas.getBoundingClientRect().bottom;
       bar.style.cssText = `top:${Math.round(bottom + 12)}px;bottom:auto;left:auto;right:16px;transform:none`;
-      hint.style.top = Math.round(bottom + 22) + 'px';
+      hint.style.top = Math.round(bottom + 66) + 'px';
     } else {
       bar.style.cssText = '';
     }
@@ -221,7 +244,7 @@
   });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) document.body.classList.add('touch');
+  if (IS_TOUCH) document.body.classList.add('touch');
 
   // 方向键：根据触点在方向盘中的左右位置判断，支持手指滑动切换方向
   const dpad = document.getElementById('dpad');
@@ -237,7 +260,8 @@
   }
   function dpadX(e) {
     const rc = dpad.getBoundingClientRect();
-    return e.clientX - (rc.left + rc.width / 2);
+    // 页面旋转后，方向键的“左右”对应屏幕的上下
+    return rotated ? e.clientY - (rc.top + rc.height / 2) : e.clientX - (rc.left + rc.width / 2);
   }
   dpad.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -282,6 +306,12 @@
   });
   document.getElementById('pauseBtn').addEventListener('click', e => { e.currentTarget.blur(); togglePause(); });
   document.getElementById('muteBtn').addEventListener('click', e => { e.currentTarget.blur(); toggleMute(); });
+  document.getElementById('rotateBtn').addEventListener('click', e => {
+    e.currentTarget.blur();
+    forceLandscape = !forceLandscape;
+    try { localStorage.setItem('smb_rotate', forceLandscape ? '1' : '0'); } catch (err) { /* ignore */ }
+    resize();
+  });
   document.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
 

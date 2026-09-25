@@ -127,11 +127,24 @@
       padding: 0;
       cursor: pointer;
     }
+    #rotateBtn { display: none; }
+    body.touch.show-rotate #rotateBtn { display: block; }
+    /* 强制横屏：浏览器不跟着转屏时（例如微信），把整个页面旋转 90 度 */
+    body.rotated #app {
+      position: fixed;
+      top: 0;
+      transform-origin: 0 0;
+      transform: rotate(90deg);
+      overflow: hidden;
+    }
+    body.rotated #stage { align-items: center; padding-top: 0; }
+    body.rotated #hint { display: none !important; }
   </style>
 </head>
 <body>
+  <div id="app">
   <div id="stage"><canvas id="game"></canvas></div>
-  <div id="hint">横屏体验更佳</div>
+  <div id="hint">横屏体验更佳：手机横过来，或点上方 ⟳ 切换横屏</div>
 
   <div id="controls">
     <div id="dpad">
@@ -146,6 +159,8 @@
   <div id="topbar">
     <button id="pauseBtn" title="暂停 (P)">❚❚</button>
     <button id="muteBtn" title="静音 (M)">♪</button>
+    <button id="rotateBtn" title="切换横屏">⟳</button>
+  </div>
   </div>
 
   <script src="game.js"></script>
