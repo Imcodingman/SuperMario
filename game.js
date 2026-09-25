@@ -1426,7 +1426,7 @@
     else p.runT++;
     const runK = Math.max(0, Math.min(1, (p.runT - 30) / 40));
     const maxV = 1.5 + runK * 1.1;
-    const acc = p.onGround ? 0.07 + runK * 0.02 : 0.06;
+    const acc = p.onGround ? 0.07 + runK * 0.02 : 0.09;   // 空中也能较快转向
 
     if (R && !L) {
       if (p.onGround) p.facing = 1;
@@ -1449,7 +1449,8 @@
     if (p.onGround) p.coyote = 5; else if (p.coyote > 0) p.coyote--;
     if (jumpBuf > 0) {
       if (p.coyote > 0) {
-        p.vy = -(4.5 + Math.abs(p.vx) * 0.25);
+        // 起跳速度：站着轻点能跳过 3 格高的水管，按住能跳过 4 格高
+        p.vy = -(5.0 + Math.abs(p.vx) * 0.15);
         p.onGround = false;
         p.coyote = 0;
         jumpBuf = 0;
@@ -1458,7 +1459,7 @@
         jumpBuf--;
       }
     }
-    const g = (input.jump && p.vy < 0) ? 0.16 : 0.38;
+    const g = (input.jump && p.vy < 0) ? 0.16 : 0.3;
     p.vy = Math.min(p.vy + g, 5.5);
 
     p.prevBottom = p.y + p.h;
