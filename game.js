@@ -19,13 +19,10 @@
   let SCALE = 3;
 
   const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const IS_WECHAT = /MicroMessenger/i.test(navigator.userAgent);
-  // 强制横屏：微信等不跟随转屏的浏览器默认开启，也可以用 ⟳ 按钮手动切换
-  let forceLandscape = IS_WECHAT;
-  try {
-    const v = localStorage.getItem('smb_rotate');
-    if (v !== null) forceLandscape = v === '1';
-  } catch (e) { /* ignore */ }
+  // 微信、QQ、钉钉、支付宝等 App 内置的浏览器不跟随手机转屏
+  const IN_APP = /MicroMessenger|QQ\/|DingTalk|AlipayClient|Weibo/i.test(navigator.userAgent);
+  // 强制横屏：App 内置浏览器每次打开都默认开启，也可以用「横屏/竖屏」按钮临时切换
+  let forceLandscape = IN_APP;
   let rotated = false;
 
   function resize() {
@@ -34,6 +31,7 @@
     document.body.classList.toggle('show-rotate', screenPortrait);
     rotated = IS_TOUCH && forceLandscape && screenPortrait;
     document.body.classList.toggle('rotated', rotated);
+    document.getElementById('rotateBtn').textContent = rotated ? '竖屏' : '横屏';
     if (rotated) {
       // 页面顺时针转 90 度：宽高互换，手机逆时针横过来拿
       app.style.width = window.innerHeight + 'px';
@@ -309,7 +307,6 @@
   document.getElementById('rotateBtn').addEventListener('click', e => {
     e.currentTarget.blur();
     forceLandscape = !forceLandscape;
-    try { localStorage.setItem('smb_rotate', forceLandscape ? '1' : '0'); } catch (err) { /* ignore */ }
     resize();
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
