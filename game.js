@@ -143,6 +143,7 @@
       pause: () => seq([76, 72, 76, 72], 0.06, { vol: 0.05 }),
       fire: () => { tone(220, 0.3, { slide: 70, type: 'sawtooth', vol: 0.04 }); noise(0.2, 0.08); },
       bridge: () => tone(120, 0.06, { type: 'triangle', vol: 0.25 }),
+      boom: () => { noise(0.3, 0.2); tone(90, 0.2, { slide: 40, type: 'triangle', vol: 0.25 }); },
       bossFall: () => tone(500, 1.2, { slide: 45, type: 'triangle', vol: 0.2 }),
     };
 
@@ -682,6 +683,41 @@
     '................',
   ], KOOPA_PAL);
 
+  // 食人花：头朝上，嘴一张一合
+  const PIRANHA_PAL = { R: '#e40000', W: '#fcfcfc', G: '#00a800', L: '#80d010' };
+  const PIRANHA_STEM = [
+    '.......GG.......',
+    '.......GG.......',
+    '..GG...GG...GG..',
+    '.GGGG..GG..GGGG.',
+    'GGLGGG.GG.GGGLGG',
+    'GGGLGGGGGGGGLGGG',
+    '.GGGLGGGGGGLGGG.',
+    '..GGGGGGGGGGGG..',
+    '....GGGGGGGG....',
+    '.......GG.......',
+    '.......GG.......',
+    '.......GG.......',
+    '.......GG.......',
+  ];
+  const PIRANHA_HEAD = [
+    '....RRR..RRR....',
+    '...RRWRR.RWRR...',
+    '..RRRRRR.RRRRR..',
+    '..RWRRRR.RRRWR..',
+    '..RRRRRW.WRRRR..',
+    '..RRRRRR.RRRRR..',
+    '...RRWRR.RRWR...',
+    '...RRRRR.RRRR...',
+    '....RRRR.RRR....',
+    '.....RRRRRR.....',
+    '......RRRR......',
+  ];
+  SPR.piranha = [
+    makeSprite(PIRANHA_HEAD.concat(PIRANHA_STEM), PIRANHA_PAL),
+    makeSprite(PIRANHA_HEAD.map(r => r.slice(0, 8) + (r[8] === '.' && r[7] === 'R' ? 'R' : r[8]) + r.slice(9)).concat(PIRANHA_STEM), PIRANHA_PAL),
+  ];
+
   const CS_MAP = { '#c84c0c': '#7c7c7c', '#fcbcb0': '#c8c8c8' };
   const TILE_CS = {
     ground: recolor(TILE.ground, CS_MAP),
@@ -749,7 +785,7 @@
   // 图块编号
   const E = 0, GROUND = 1, BRICK = 2, QCOIN = 3, QMUSH = 4, USED = 5, HARD = 6,
     PTL = 7, PTR = 8, PL = 9, PR = 10, BRICK_COINS = 11, COIN = 12,
-    TREE_L = 13, TREE_M = 14, TREE_R = 15, TRUNK = 16, LAVA = 17, BRIDGE = 18, AXE = 19;
+    TREE_L = 13, TREE_M = 14, TREE_R = 15, TRUNK = 16, LAVA = 17, BRIDGE = 18, AXE = 19, CANNON = 20;
   const tiles = new Uint8Array(LW * LH);
   const coinBricks = new Map();
 
@@ -1077,6 +1113,101 @@
     },
   });
 
+  // 炮台：在 (x, y) 放炮口，下面用石块垫到地面
+  const cannon = (x, y) => {
+    setT(x, y, CANNON);
+    for (let yy = y + 1; yy <= 12; yy++) setT(x, yy, HARD);
+  };
+
+  // ---- 世界 2：难度提高（时间更少、敌人更快、新机关） ----
+  LEVELS.push({
+    name: '2-1',
+    song: 2,
+    ugEnd: 0,
+    sky: '#f49a5c',     // 黄昏
+    time: 300,
+    enemySpeed: 0.75,
+    checkpoint: [84, 12],
+    deco: DECO_1,
+    enemies: [
+      [18, 12], [26, 12, 'koopa'], [34, 12], [35.5, 12], [43, 12, 'koopa'],
+      [56, 12], [57.5, 12], [64, 12, 'koopa'], [74, 12], [75.5, 12],
+      [93, 12, 'koopa'], [100, 12], [108, 12], [109.5, 12], [120, 12, 'koopa'],
+      [130, 12], [136, 12], [137.5, 12], [146, 12, 'koopa'], [155, 12],
+      [170, 12], [171.5, 12], [180, 12, 'koopa'],
+    ],
+    // 会钻出食人花的水管（水管左列）
+    piranhas: [14, 30, 38, 60, 68, 96, 124, 150, 176],
+    // 炮台 [列, 炮口行]：第 12 行贴地打小个子，第 11 行打大个子
+    cannons: [[52, 12], [86, 11], [132, 12], [158, 11], [184, 12]],
+    build() {
+      groundWithGaps([[20, 22], [46, 49], [78, 81], [112, 116], [140, 143], [164, 167]]);
+      row([6, 7, 9, 10], 9, BRICK);
+      setT(8, 9, QMUSH);
+      setT(8, 5, QCOIN);
+      pipe(14, 2); pipe(30, 3); pipe(38, 4); pipe(60, 2); pipe(68, 3);
+      pipe(96, 4); pipe(124, 3); pipe(150, 2); pipe(176, 3);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      row([102, 103, 105, 106], 9, BRICK);
+      setT(104, 9, QMUSH);
+      row(range(112, 116), 8, COIN);
+      row([141, 142], 7, COIN);
+      row([165, 166], 7, COIN);
+      stairs(186, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+      setT(FLAG_X, 12, HARD);
+    },
+  });
+
+  LEVELS.push({
+    name: '2-2',
+    song: 3,
+    ugEnd: 0,
+    theme: 'castle',
+    time: 300,
+    enemySpeed: 0.75,
+    firebarSpeed: 0.045,
+    checkpoint: [100, 12],
+    deco: [],
+    enemies: [
+      [36, 12, 'koopa'], [56, 12], [57.5, 12], [78, 12, 'koopa'], [92, 12],
+      [123, 12], [142, 12, 'koopa'], [160, 12], [161.5, 12],
+    ],
+    firebars: [
+      [18, 9, 6, 1], [34, 12, 6, -1], [52, 8, 7, 1], [74, 9, 6, -1], [96, 12, 6, 1],
+      [118, 8, 7, -1], [140, 10, 6, 1], [166, 9, 7, -1],
+    ],
+    // 会从岩浆里跳出来的火球（所在列）
+    podoboos: [11, 26, 43, 63, 87, 107, 128, 153, 185],
+    cannons: [[48, 12], [136, 11]],
+    platforms: [
+      { x: 60, y: 10, axis: 'x', min: 60, max: 64 },
+      { x: 104, y: 9, axis: 'x', min: 104, max: 108 },
+      { x: 150, y: 10, axis: 'x', min: 150, max: 154 },
+    ],
+    // 更凶的魔王：喷火更频繁、一次两颗、跳得更勤
+    boss: { x: 186, min: 181, max: 190, fireRate: 80, double: true, hop: 70 },
+    build() {
+      const lavaPits = [[10, 13], [24, 28], [40, 45], [60, 66], [84, 89], [104, 110], [126, 131], [150, 156], [180, 192]];
+      for (let x = 0; x < LW; x++) {
+        const lava = lavaPits.some(([a, b]) => x >= a && x <= b);
+        setT(x, 13, lava ? LAVA : GROUND);
+        setT(x, 14, lava ? LAVA : GROUND);
+        setT(x, 0, BRICK);
+        setT(x, 1, BRICK);
+      }
+      setT(14, 9, QMUSH);
+      setT(100, 9, QMUSH);
+      for (let x = 30; x <= 38; x++) for (let y = 2; y <= 6; y++) setT(x, y, BRICK);
+      for (let x = 112; x <= 122; x++) for (let y = 2; y <= 7; y++) setT(x, y, BRICK);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      stairs(172, [1, 2, 3, 4, 4, 4, 4, 4]);
+      row(range(180, 192), 9, BRIDGE);
+      setT(193, 8, AXE);
+      for (let x = 193; x < LW; x++) for (let y = 9; y <= 12; y++) setT(x, y, HARD);
+      for (const [x, y] of this.firebars) setT(x, y, USED);
+    },
+  });
+
   function buildLevel() {
     tiles.fill(E);
     coinBricks.clear();
@@ -1106,6 +1237,10 @@
   let firebars = [];
   let boss = null;
   let hazards = [];   // 魔王喷出的火球
+  let piranhas = [];
+  let cannons = [];
+  let bullets = [];   // 炮弹
+  let podoboos = [];  // 岩浆火球
   const bumps = new Map();   // 图块索引 -> 顶起动画帧
 
   function newPlayer(x) {
@@ -1147,20 +1282,32 @@
       x: d.x * T, y: d.y * T, w: 3 * T, h: 8, axis: d.axis,
       min: d.min * T, max: d.max * T, speed: 0.6, dir: 1, dx: 0, dy: 0,
     }));
-    firebars = (lv.firebars || []).map(([x, y, len, dir]) => ({ cx: x * T + 8, cy: y * T + 8, len, dir, a: 0 }));
+    firebars = (lv.firebars || []).map(([x, y, len, dir]) => ({
+      cx: x * T + 8, cy: y * T + 8, len, dir, a: 0, speed: lv.firebarSpeed || 0.03,
+    }));
     hazards = [];
+    piranhas = (lv.piranhas || []).map((x, i) => {
+      let top = 12;
+      for (let y = 0; y < LH; y++) if (getT(x, y) === PTL) { top = y; break; }
+      return { x: x * T + 8, top: top * T, off: 0, phase: 'hidden', t: (i * 37) % 90 };
+    });
+    cannons = (lv.cannons || []).map(([x, y], i) => ({ x: x * T, y: y * T, t: 60 + (i * 53) % 120 }));
+    bullets = [];
+    podoboos = (lv.podoboos || []).map((x, i) => ({ x: x * T + 2, y: 15 * T, w: 12, h: 14, vy: 0, t: (i * 29) % 100 }));
     boss = lv.boss ? {
       x: lv.boss.x * T, y: 9 * T - 30, w: 28, h: 30, vx: -0.5, vy: 0,
       minX: lv.boss.min * T, maxX: lv.boss.max * T, face: -1, t: 0,
       hopT: 120, fireT: 90, mouthT: 0, active: false, onGround: false,
+      fireRate: lv.boss.fireRate || 140, double: !!lv.boss.double, hop: lv.boss.hop || 100,
     } : null;
     game.axePhase = 0;
     enemies = lv.enemies.map(([tx, ty, type = 'goomba']) => ({
       type, x: tx * T + 1, y: type === 'koopa' ? ty * T - 6 : ty * T + 2,
-      w: 14, h: type === 'koopa' ? 22 : 14, vx: -0.5, vy: 0, kickT: 0, shellCombo: 0,
+      w: 14, h: type === 'koopa' ? 22 : 14, vx: -(lv.enemySpeed || 0.5), speed: lv.enemySpeed || 0.5,
+      vy: 0, kickT: 0, shellCombo: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
     }));
-    game.time = 400;
+    game.time = lv.time || 400;
     game.timeTick = 0;
     game.flagY = 3 * T + 10;
     game.flagPhase = 0;
@@ -1183,6 +1330,10 @@
     firebars = [];
     hazards = [];
     boss = null;
+    piranhas = [];
+    cannons = [];
+    bullets = [];
+    podoboos = [];
     items = [];
     effects = [];
     bumps.clear();
@@ -1534,7 +1685,7 @@
         e.state = 'walk';
         e.y -= 8;
         e.h = 22;
-        e.vx = p.x < e.x ? -0.5 : 0.5;
+        e.vx = p.x < e.x ? -e.speed : e.speed;
       }
 
       e.vy = Math.min(e.vy + 0.3, 5);
@@ -1610,7 +1761,7 @@
     if (game.state !== 'play') return;
     const p = player;
     for (const fb of firebars) {
-      fb.a += 0.03 * fb.dir;
+      fb.a += fb.speed * fb.dir;
       if (Math.abs(fb.cx - (p.x + p.w / 2)) > fb.len * 8 + 24) continue;
       for (let i = 1; i < fb.len; i++) {
         const bx = fb.cx + Math.cos(fb.a) * i * 8;
@@ -1639,12 +1790,14 @@
     const r = collideY(b);
     b.onGround = !!(r && r.floor);
     if (b.onGround) b.vy = 0;
-    if (b.onGround && --b.hopT <= 0) { b.vy = -4.5; b.hopT = 100 + Math.floor(Math.random() * 80); }
+    if (b.onGround && --b.hopT <= 0) { b.vy = -4.5; b.hopT = b.hop + Math.floor(Math.random() * 80); }
     if (b.mouthT > 0) b.mouthT--;
     if (--b.fireT <= 0) {
-      b.fireT = 140 + Math.floor(Math.random() * 60);
+      b.fireT = b.fireRate + Math.floor(Math.random() * 60);
       if (Math.abs(p.x - b.x) < 14 * T) {
         hazards.push({ x: b.face < 0 ? b.x - 12 : b.x + b.w, y: b.y + 6, w: 12, h: 6, vx: 1.6 * b.face, t: 0 });
+        // 双发：第二颗贴着吊桥平飞，不追踪
+        if (b.double) hazards.push({ x: b.face < 0 ? b.x - 12 : b.x + b.w, y: 9 * T - 14, w: 12, h: 6, vx: 1.9 * b.face, t: 0, straight: true });
         b.mouthT = 24;
         Sound.sfx.fire();
       }
@@ -1660,11 +1813,89 @@
       h.x += h.vx;
       // 火球会慢慢对准玩家的高度
       const ty = p.y + p.h / 2 - h.h / 2;
-      h.y += Math.max(-0.4, Math.min(0.4, ty - h.y));
+      if (!h.straight) h.y += Math.max(-0.4, Math.min(0.4, ty - h.y));
       if (h.x < camX - 32 || h.x > camX + VIEW_W + 32) h.remove = true;
       if (overlap(p, h)) { hurtPlayer(); if (game.state !== 'play') return; }
     }
     hazards = hazards.filter(h => !h.remove);
+  }
+
+  // ---- 世界 2：食人花、炮台、岩浆火球 ----
+  function updatePiranhas() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const pl of piranhas) {
+      if (Math.abs(pl.x - camX - VIEW_W / 2) > VIEW_W) continue;
+      pl.t++;
+      if (pl.phase === 'hidden') {
+        // 玩家站在水管旁边或上面时不会钻出来
+        const near = Math.abs(p.x + p.w / 2 - (pl.x + 8)) < 28;
+        if (pl.t > 90 && !near) { pl.phase = 'up'; pl.t = 0; }
+      } else if (pl.phase === 'up') {
+        pl.off = Math.min(24, pl.off + 0.8);
+        if (pl.off >= 24) { pl.phase = 'out'; pl.t = 0; }
+      } else if (pl.phase === 'out') {
+        if (pl.t > 70) { pl.phase = 'down'; pl.t = 0; }
+      } else {
+        pl.off = Math.max(0, pl.off - 0.8);
+        if (pl.off <= 0) { pl.phase = 'hidden'; pl.t = 0; }
+      }
+      if (pl.off > 4 && overlap(p, { x: pl.x + 2, y: pl.top - pl.off, w: 12, h: pl.off })) {
+        hurtPlayer();
+        if (game.state !== 'play') return;
+      }
+    }
+  }
+
+  function updateCannons() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const c of cannons) {
+      if (c.x < camX - 16 || c.x > camX + VIEW_W + 16) continue;
+      const dx = p.x + p.w / 2 - (c.x + 8);
+      if (--c.t <= 0) {
+        c.t = 170 + Math.floor(Math.random() * 90);
+        if (Math.abs(dx) > 40) {
+          const dir = Math.sign(dx);
+          bullets.push({ x: c.x + (dir > 0 ? 16 : -16), y: c.y + 1, w: 16, h: 14, vx: 1.5 * dir, vy: 0, state: 'fly' });
+          Sound.sfx.boom();
+        }
+      }
+    }
+    for (const b of bullets) {
+      if (b.state === 'fly') b.x += b.vx;
+      else { b.vy += 0.3; b.y += b.vy; b.x += b.vx * 0.3; }
+      if (b.x < camX - 48 || b.x > camX + VIEW_W + 48 || b.y > VIEW_H + 16) { b.remove = true; continue; }
+      if (b.state !== 'fly' || !overlap(p, b)) continue;
+      if (p.vy >= 0 && p.prevBottom <= b.y + 5) {
+        // 踩掉炮弹
+        b.state = 'fall';
+        addScore(200, b.x, b.y - 8);
+        stompBounce(p, b);
+        Sound.sfx.stomp();
+      } else {
+        hurtPlayer();
+        if (game.state !== 'play') return;
+      }
+    }
+    bullets = bullets.filter(b => !b.remove);
+  }
+
+  function updatePodoboos() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const f of podoboos) {
+      if (Math.abs(f.x - camX - VIEW_W / 2) > VIEW_W) continue;
+      if (f.y >= 15 * T && f.vy >= 0) {
+        f.y = 15 * T;
+        f.vy = 0;
+        if (++f.t > 110) { f.t = 0; f.vy = -7.2; }
+      } else {
+        f.vy += 0.2;
+        f.y += f.vy;
+      }
+      if (overlap(p, f)) { hurtPlayer(); if (game.state !== 'play') return; }
+    }
   }
 
   // 碰到斧头：吊桥从右往左断掉，魔王掉进岩浆
@@ -1677,6 +1908,7 @@
     p.vy = 0;
     p.plat = null;
     hazards = [];
+    bullets = [];
     for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) if (getT(x, y) === AXE) setT(x, y, E);
     Sound.stopBgm();
   }
@@ -1892,6 +2124,9 @@
         updateFirebars();
         updateBoss();
         updateHazards();
+        updatePiranhas();
+        updateCannons();
+        updatePodoboos();
         updateEffects();
         updateCamera();
         break;
@@ -2055,6 +2290,7 @@
         if (t === LAVA) { drawLava(tx * T - cx, ty * T, getT(tx, ty - 1) !== LAVA); continue; }
         if (t === BRIDGE) { drawBridge(tx * T - cx, ty * T); continue; }
         if (t === AXE) { drawAxe(tx * T - cx, ty * T); continue; }
+        if (t === CANNON) { drawCannon(tx * T - cx, ty * T); continue; }
         const b = bumps.get(ty * LW + tx);
         const off = b !== undefined ? -Math.round(Math.sin(b / 10 * Math.PI) * 5) : 0;
         ctx.drawImage(tileImage(t, tx), tx * T - cx, ty * T + off);
@@ -2095,6 +2331,47 @@
     ctx.fillRect(x + 3, y + 1 + bob, 10, 7);
     ctx.fillStyle = '#fcfcfc';
     ctx.fillRect(x + 3, y + 1 + bob, 3, 7);
+  }
+
+  function drawCannon(x, y) {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x, y, T, T);
+    ctx.fillStyle = '#5c5c5c';
+    ctx.fillRect(x + 1, y + 1, T - 2, 4);
+    ctx.fillRect(x + 1, y + 11, T - 2, 4);
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(x + 5, y + 6, 6, 4);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x + 7, y + 7, 2, 2);
+  }
+
+  function drawPiranhas(cx) {
+    for (const pl of piranhas) {
+      if (pl.off <= 0) continue;
+      const spr = SPR.piranha[Math.floor(game.frame / 12) % 2];
+      ctx.drawImage(spr.r, Math.round(pl.x - cx), Math.round(pl.top - pl.off));
+    }
+  }
+
+  function drawBullets(cx) {
+    for (const b of bullets) {
+      const x = Math.round(b.x - cx), y = Math.round(b.y);
+      const dir = Math.sign(b.vx) || 1;
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(x + 8, y + 7, 8, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(dir > 0 ? x : x + 8, y, 8, 14);
+      ctx.fillStyle = '#fcfcfc';
+      ctx.fillRect(dir > 0 ? x + 9 : x + 4, y + 3, 3, 4);
+      ctx.fillStyle = '#e40000';
+      ctx.fillRect(dir > 0 ? x + 2 : x + 12, y + 9, 2, 2);
+    }
+  }
+
+  function drawPodoboos(cx) {
+    for (const f of podoboos) {
+      if (f.y >= 15 * T) continue;
+      drawFireball(f.x + 6 - cx, f.y + 7, 6);
+    }
   }
 
   function drawFireball(x, y, r) {
@@ -2336,6 +2613,7 @@
       drawFlag(cx);
     }
     drawItems(cx, true);
+    drawPiranhas(cx);
     drawTiles(cx);
     drawPlatforms(cx);
     drawItems(cx, false);
@@ -2344,6 +2622,8 @@
     if (player) drawPlayer(cx);
     drawFirebars(cx);
     drawHazards(cx);
+    drawBullets(cx);
+    drawPodoboos(cx);
     drawEffects(cx);
   }
 
@@ -2429,5 +2709,5 @@
   requestAnimationFrame(loop);
 
   // 调试/测试钩子
-  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; }, get boss() { return boss; }, get firebars() { return firebars; } };
+  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; }, get boss() { return boss; }, get firebars() { return firebars; }, get piranhas() { return piranhas; }, get bullets() { return bullets; }, get podoboos() { return podoboos; } };
 })();
