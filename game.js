@@ -745,6 +745,34 @@
 
   const CS_MAP = { '#c84c0c': '#7c7c7c', '#fcbcb0': '#c8c8c8' };
   const SN_MAP = { '#c84c0c': '#8cb4dc', '#fcbcb0': '#fcfcfc' };
+  // 刺猬：背上有刺，踩了会受伤
+  const SPINY_PAL = { R: '#e40000', W: '#fcfcfc', Y: '#fcbc3c', K: '#000', O: '#e45c10' };
+  const SPINY_TOP = [
+    '................',
+    '.....W....W.....',
+    '....WRW..WRW....',
+    '...RRRRRRRRRR...',
+    '..WRRRRWWRRRRW..',
+    '.RRRRRRRRRRRRRR.',
+    'WRRRRWRRRRWRRRRW',
+    '.RRRRRRRRRRRRRR.',
+    '.RRRWRRRRRRWRRR.',
+    '..RRRRRRRRRRRR..',
+    '..YYYYYYYYYYYY..',
+    '.YYYYYYYYYYKYYY.',
+    '..YYYYYYYYYYYY..',
+  ];
+  SPR.spiny = [
+    makeSprite(SPINY_TOP.concat(['...OOO....OOO...', '..OOOO....OOOO..', '................']), SPINY_PAL),
+    makeSprite(SPINY_TOP.concat(['....OOO..OOO....', '....OOOO.OOOO...', '................']), SPINY_PAL),
+  ];
+
+  const DS_MAP = { '#c84c0c': '#d09038', '#fcbcb0': '#fce0a0' };
+  const TILE_DS = {
+    ground: recolor(TILE.ground, DS_MAP),
+    brick: recolor(TILE.brick, DS_MAP),
+    hard: recolor(TILE.hard, DS_MAP),
+  };
   const TILE_SN = {
     ground: recolor(TILE.ground, SN_MAP),
     brick: recolor(TILE.brick, SN_MAP),
@@ -1334,6 +1362,102 @@
     },
   });
 
+  // ---- 世界 3：更难（锤子兄弟、云上刺猬怪、刺猬） ----
+  LEVELS.push({
+    name: '3-1',
+    song: 0,
+    ugEnd: 0,
+    theme: 'desert',
+    sky: '#f8d890',
+    time: 300,
+    enemySpeed: 0.85,
+    checkpoint: [100, 12],
+    deco: DECO_1,
+    // 'hammer' 锤子兄弟：在砖块台子上跳上跳下，朝玩家扔锤子
+    enemies: [
+      [18, 12], [30, 12, 'koopa'], [40, 12, 'hammer'], [43, 8, 'hammer'], [56, 12, 'para'],
+      [64, 12], [65.5, 12], [84, 12, 'koopa'], [112, 12, 'para'], [120, 12, 'hammer'],
+      [124, 8, 'hammer'], [130, 12], [131.5, 12], [142, 12, 'koopa'], [158, 12, 'para'],
+      [172, 12], [173.5, 12],
+    ],
+    // 云上刺猬怪出没的范围（列）
+    lakitu: { from: 26, to: 176 },
+    piranhas: [14, 60, 90, 146],
+    cannons: [[70, 12], [98, 11], [154, 12]],
+    build() {
+      groundWithGaps([[22, 25], [48, 52], [76, 79], [104, 108], [134, 137], [162, 166]]);
+      row([8, 9, 11, 12], 9, BRICK);
+      setT(10, 9, QMUSH);
+      pipe(14, 3); pipe(60, 2); pipe(90, 4); pipe(146, 3);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      // 锤子兄弟的两层砖块台子
+      row(range(38, 46), 9, BRICK);
+      row(range(39, 45), 5, BRICK);
+      row(range(118, 126), 9, BRICK);
+      row(range(119, 125), 5, BRICK);
+      setT(102, 9, QMUSH);
+      row(range(48, 52), 7, COIN);
+      row(range(104, 108), 7, COIN);
+      stairs(186, [1, 2, 3, 4, 5, 6, 7, 8, 8]);
+      setT(FLAG_X, 12, HARD);
+    },
+  });
+
+  LEVELS.push({
+    name: '3-2',
+    song: 3,
+    ugEnd: 0,
+    theme: 'castle',
+    time: 300,
+    enemySpeed: 0.85,
+    firebarSpeed: 0.055,
+    checkpoint: [102, 12],
+    deco: [],
+    enemies: [
+      [62, 12], [63.5, 12], [68, 12, 'hammer'], [84, 12, 'koopa'], [124, 12, 'hammer'],
+      [128, 12], [144, 12, 'koopa'], [166, 12], [167.5, 12],
+    ],
+    firebars: [
+      [14, 10, 6, 1, 0], [14, 10, 6, 1, Math.PI], [30, 12, 6, -1], [47, 10, 6, 1, 0], [47, 10, 6, 1, Math.PI],
+      [66, 12, 6, -1], [86, 9, 7, 1], [106, 10, 6, 1, 0], [106, 10, 6, 1, Math.PI], [126, 12, 6, -1],
+      [146, 9, 7, 1, 0], [146, 9, 7, 1, Math.PI], [168, 10, 6, -1],
+    ],
+    podoboos: [9, 21, 38, 56, 76, 96, 116, 136, 156, 186],
+    cannons: [[28, 12], [88, 11], [164, 12]],
+    platforms: [
+      { x: 18, y: 10, axis: 'fall' }, { x: 21, y: 9, axis: 'fall' },
+      { x: 34, y: 10, axis: 'x', min: 34, max: 39 },
+      { x: 52, y: 10, axis: 'fall' }, { x: 55, y: 9, axis: 'fall' }, { x: 58, y: 10, axis: 'fall' },
+      { x: 75, y: 8, axis: 'y', min: 5, max: 11 },
+      { x: 92, y: 10, axis: 'fall' }, { x: 95, y: 9, axis: 'fall' }, { x: 98, y: 10, axis: 'fall' },
+      { x: 112, y: 9, axis: 'x', min: 112, max: 117 },
+      { x: 132, y: 10, axis: 'fall' }, { x: 135, y: 8, axis: 'fall' }, { x: 138, y: 10, axis: 'fall' },
+      { x: 152, y: 10, axis: 'x', min: 152, max: 157 },
+    ],
+    // 最终魔王：更快、喷火更勤，还会扔锤子
+    boss: { x: 186, min: 181, max: 190, fireRate: 50, double: true, hop: 45, speed: 0.9, hammers: true },
+    build() {
+      const lavaPits = [[8, 11], [18, 24], [34, 42], [52, 60], [72, 80], [92, 100], [112, 120], [132, 140], [152, 160], [180, 192]];
+      for (let x = 0; x < LW; x++) {
+        const lava = lavaPits.some(([a, b]) => x >= a && x <= b);
+        setT(x, 13, lava ? LAVA : GROUND);
+        setT(x, 14, lava ? LAVA : GROUND);
+        setT(x, 0, BRICK);
+        setT(x, 1, BRICK);
+      }
+      setT(26, 9, QMUSH);
+      setT(102, 9, QMUSH);
+      for (let x = 44; x <= 50; x++) for (let y = 2; y <= 6; y++) setT(x, y, BRICK);
+      for (let x = 142; x <= 150; x++) for (let y = 2; y <= 7; y++) setT(x, y, BRICK);
+      for (const [x, y] of this.cannons) cannon(x, y);
+      stairs(172, [1, 2, 3, 4, 4, 4, 4, 4]);
+      row(range(180, 192), 9, BRIDGE);
+      setT(193, 8, AXE);
+      for (let x = 193; x < LW; x++) for (let y = 9; y <= 12; y++) setT(x, y, HARD);
+      for (const [x, y] of this.firebars) setT(x, y, USED);
+    },
+  });
+
   function buildLevel() {
     tiles.fill(E);
     coinBricks.clear();
@@ -1373,6 +1497,8 @@
   let cannons = [];
   let bullets = [];   // 炮弹
   let podoboos = [];  // 岩浆火球
+  let hammers = [];   // 锤子兄弟和魔王扔出的锤子
+  let lakitu = null;  // 云上刺猬怪
   const bumps = new Map();   // 图块索引 -> 顶起动画帧
 
   function newPlayer(x) {
@@ -1397,6 +1523,8 @@
     game.state = 'intro';
     game.stateT = 0;
   }
+
+  const TALL = ['koopa', 'para', 'hammer'];   // 高 22 像素的敌人
 
   function startLevel() {
     if (game.level > unlocked) {
@@ -1431,16 +1559,21 @@
     cannons = (lv.cannons || []).map(([x, y], i) => ({ x: x * T, y: y * T, t: 60 + (i * 53) % 120 }));
     bullets = [];
     podoboos = (lv.podoboos || []).map((x, i) => ({ x: x * T + 2, y: 15 * T, w: 12, h: 14, vy: 0, t: (i * 29) % 100 }));
+    hammers = [];
+    lakitu = lv.lakitu ? {
+      x: lv.lakitu.from * T, y: 34, w: 16, h: 22, vy: 0, t: 0, dead: false, respawn: 0,
+      from: lv.lakitu.from * T, to: lv.lakitu.to * T, active: false,
+    } : null;
     boss = lv.boss ? {
       x: lv.boss.x * T, y: 9 * T - 30, w: 28, h: 30, vx: -(lv.boss.speed || 0.5), vy: 0,
       minX: lv.boss.min * T, maxX: lv.boss.max * T, face: -1, t: 0,
-      hopT: 120, fireT: 90, mouthT: 0, active: false, onGround: false,
+      hopT: 120, fireT: 90, mouthT: 0, active: false, onGround: false, hammers: !!lv.boss.hammers,
       fireRate: lv.boss.fireRate || 140, double: !!lv.boss.double, hop: lv.boss.hop || 100,
     } : null;
     game.axePhase = 0;
     enemies = lv.enemies.map(([tx, ty, type = 'goomba']) => ({
-      type, x: tx * T + 1, y: type !== 'goomba' ? ty * T - 6 : ty * T + 2,
-      w: 14, h: type !== 'goomba' ? 22 : 14, vx: -(lv.enemySpeed || 0.5), speed: lv.enemySpeed || 0.5,
+      type, x: tx * T + 1, y: TALL.includes(type) ? ty * T - 6 : ty * T + 2,
+      w: 14, h: TALL.includes(type) ? 22 : 14, vx: -(lv.enemySpeed || 0.5), speed: lv.enemySpeed || 0.5,
       vy: 0, kickT: 0, shellCombo: 0,
       state: 'walk', active: false, anim: 0, t: 0, remove: false,
     }));
@@ -1472,6 +1605,8 @@
     cannons = [];
     bullets = [];
     podoboos = [];
+    hammers = [];
+    lakitu = null;
     items = [];
     effects = [];
     bumps.clear();
@@ -1846,14 +1981,19 @@
         e.vx = p.x < e.x ? -e.speed : e.speed;
       }
 
+      const hb = e.type === 'hammer' && e.state === 'walk';
+      if (hb) updateHammerBro(e, p);
       e.vy = Math.min(e.vy + 0.3, 5);
       e.x += e.vx;
-      if (collideX(e)) {
+      // 锤子兄弟来回小范围踱步，能穿过砖块跳上跳下，所以不做横向碰撞
+      if (!hb && collideX(e)) {
         e.vx = -e.vx;
         if (e.state === 'slide' && e.x < camX + VIEW_W) Sound.sfx.bump();
       }
       e.y += e.vy;
-      const r = collideY(e);
+      const r = hb && (e.vy < 0 || e.dropT > 0) ? null : collideY(e);
+      if (e.dropT > 0) e.dropT--;
+      e.onGround = !!(r && r.floor);
       if (r && r.floor) {
         e.vy = 0;
         if (e.type === 'para' && e.state === 'walk') e.vy = -4.2;   // 飞龟一落地就再跳
@@ -1897,6 +2037,17 @@
         addScore(400, e.x, e.y - 8);
         Sound.sfx.kick();
         if (fromAbove) stompBounce(p, e);
+      } else if (fromAbove && e.type === 'spiny') {
+        // 刺猬踩不得
+        hurtPlayer();
+        if (game.state !== 'play') return;
+      } else if (fromAbove && e.type === 'hammer') {
+        e.state = 'flip';
+        e.vy = -2;
+        e.vx = 0;
+        addScore(1000, e.x, e.y - 8);
+        stompBounce(p, e);
+        Sound.sfx.stomp();
       } else if (fromAbove) {
         if (e.type === 'para') {
           // 飞龟被踩掉翅膀，变成普通乌龟
@@ -1967,6 +2118,10 @@
         b.mouthT = 24;
         Sound.sfx.fire();
       }
+    }
+    // 最终魔王还会朝玩家扔锤子
+    if (b.hammers && b.t % 100 === 50 && Math.abs(p.x - b.x) < 14 * T) {
+      hammers.push({ x: b.x + b.w / 2, y: b.y - 4, vx: b.face * (1.2 + Math.random() * 0.8), vy: -5.2, rot: 0 });
     }
     if (overlap(p, b)) hurtPlayer();
   }
@@ -2064,6 +2219,86 @@
     }
   }
 
+  // ---- 世界 3：锤子兄弟、锤子、云上刺猬怪 ----
+  function updateHammerBro(e, p) {
+    e.t++;
+    if (e.home === undefined) e.home = e.x;
+    e.face = p.x + p.w / 2 < e.x + e.w / 2 ? -1 : 1;
+    e.vx = Math.floor(e.t / 40) % 2 ? 0.45 : -0.45;
+    if (e.x < e.home - 24) e.vx = 0.45;
+    else if (e.x > e.home + 24) e.vx = -0.45;
+    if (e.onGround && e.t % 160 === 80) {
+      // 站在砖块上时有一半机会往下跳穿过砖块，否则往上跳一层
+      const col = Math.floor((e.x + e.w / 2) / T), feet = Math.floor((e.y + e.h + 1) / T);
+      const below = getT(col, feet);
+      // 头顶 3~5 行内有砖块，才有上一层可跳
+      let above = false;
+      for (let y = feet - 5; y <= feet - 3; y++) if (getT(col, y) === BRICK) above = true;
+      if (below === BRICK && (!above || Math.random() < 0.5)) { e.dropT = 14; e.vy = -2; }
+      else if (above) e.vy = -6.5;
+      else e.vy = -3;
+    }
+    if (e.t % 75 === 0 && e.x > camX - 16 && e.x < camX + VIEW_W + 16) {
+      hammers.push({ x: e.x + 4, y: e.y - 4, vx: e.face * (1 + Math.random() * 0.6), vy: -4.8, rot: 0 });
+      e.throwT = 14;
+    }
+    if (e.throwT > 0) e.throwT--;
+  }
+
+  function updateHammers() {
+    if (game.state !== 'play') return;
+    const p = player;
+    for (const h of hammers) {
+      h.vy = Math.min(h.vy + 0.2, 5);
+      h.x += h.vx;
+      h.y += h.vy;
+      h.rot += 0.3;
+      if (h.y > VIEW_H + 16) { h.remove = true; continue; }
+      if (overlap(p, { x: h.x, y: h.y, w: 8, h: 8 })) { hurtPlayer(); if (game.state !== 'play') return; }
+    }
+    hammers = hammers.filter(h => !h.remove);
+  }
+
+  function updateLakitu() {
+    const L = lakitu;
+    if (!L || game.state !== 'play') return;
+    const p = player;
+    if (L.dead) {
+      L.vy = Math.min(L.vy + 0.3, 6);
+      L.y += L.vy;
+      // 被踩掉后过 10 秒左右会再飞回来
+      if (++L.respawn > 600 && p.x < L.to) { L.dead = false; L.y = 34; L.vy = 0; L.x = camX - 24; L.respawn = 0; }
+      return;
+    }
+    if (p.x < L.from) return;
+    L.active = true;
+    L.t++;
+    const leaving = p.x > L.to;
+    const target = leaving ? camX + VIEW_W + 80 : p.x + Math.sin(L.t / 70) * 80;
+    L.x += Math.max(-2.4, Math.min(2.4, (target - L.x) * 0.04));
+    L.y = 34 + Math.sin(L.t / 25) * 4;
+    const spinies = enemies.filter(e => e.type === 'spiny' && !e.remove).length;
+    if (!leaving && L.t % 140 === 0 && spinies < 4) {
+      enemies.push({
+        type: 'spiny', x: L.x + 1, y: L.y + 6, w: 14, h: 14, vx: p.x < L.x ? -0.6 : 0.6, vy: -3,
+        speed: 0.6, kickT: 0, shellCombo: 0, state: 'walk', active: true, anim: 0, t: 0, remove: false,
+      });
+      L.throwT = 16;
+    }
+    if (L.throwT > 0) L.throwT--;
+    if (overlap(p, L)) {
+      if (p.vy >= 0 && p.prevBottom <= L.y + 8) {
+        L.dead = true;
+        L.vy = -2;
+        addScore(800, L.x, L.y);
+        stompBounce(p, L);
+        Sound.sfx.stomp();
+      } else {
+        hurtPlayer();
+      }
+    }
+  }
+
   // 碰到斧头：吊桥从右往左断掉，魔王掉进岩浆
   function startAxe() {
     const p = player;
@@ -2075,6 +2310,7 @@
     p.plat = null;
     hazards = [];
     bullets = [];
+    hammers = [];
     for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) if (getT(x, y) === AXE) setT(x, y, E);
     Sound.stopBgm();
   }
@@ -2293,6 +2529,8 @@
         updatePiranhas();
         updateCannons();
         updatePodoboos();
+        updateHammers();
+        updateLakitu();
         updateEffects();
         updateCamera();
         break;
@@ -2423,7 +2661,8 @@
 
   function tileImage(t, tx) {
     const lv = LEVELS[game.level];
-    const set = lv.theme === 'castle' ? TILE_CS : lv.theme === 'snow' ? TILE_SN : tx < lv.ugEnd ? TILE_UG : TILE;
+    const set = lv.theme === 'castle' ? TILE_CS : lv.theme === 'snow' ? TILE_SN : lv.theme === 'desert' ? TILE_DS
+      : tx < lv.ugEnd ? TILE_UG : TILE;
     switch (t) {
       case GROUND: return set.ground;
       case BRICK: case BRICK_COINS: return set.brick;
@@ -2497,6 +2736,53 @@
     ctx.fillRect(x + 3, y + 1 + bob, 10, 7);
     ctx.fillStyle = '#fcfcfc';
     ctx.fillRect(x + 3, y + 1 + bob, 3, 7);
+  }
+
+  function drawHammer(x, y, rot) {
+    ctx.save();
+    ctx.translate(x + 4, y + 4);
+    ctx.rotate(rot);
+    ctx.fillStyle = '#8c4c18';
+    ctx.fillRect(-1, -2, 2, 7);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(-4, -6, 8, 5);
+    ctx.fillStyle = '#b0b0b0';
+    ctx.fillRect(-3, -5, 6, 3);
+    ctx.restore();
+  }
+
+  function drawHammers(cx) {
+    for (const h of hammers) drawHammer(Math.round(h.x - cx), Math.round(h.y), h.rot);
+  }
+
+  function drawLakitu(cx) {
+    const L = lakitu;
+    if (!L || !L.active) return;
+    const x = Math.round(L.x - cx), y = Math.round(L.y);
+    if (x < -30 || x > VIEW_W + 30) return;
+    ctx.save();
+    if (L.dead) { ctx.translate(x + 8, y + 11); ctx.scale(1, -1); ctx.translate(-x - 8, -y - 11); }
+    // 身体：绿色龟壳 + 黄色脑袋
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(x + 7, y + 8, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00a800';
+    ctx.beginPath(); ctx.arc(x + 7, y + 8, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fcbc3c';
+    ctx.beginPath(); ctx.arc(x + 11, y + 3, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x + 12, y + 1, 1, 2);
+    // 举起要丢的刺猬
+    if (L.throwT > 0) ctx.drawImage(SPR.spiny[0].r, x, y - 12);
+    // 云朵
+    const puff = (px, py, r) => { ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill(); };
+    ctx.fillStyle = '#3cbcfc';
+    puff(x + 1, y + 17, 6); puff(x + 8, y + 15, 7); puff(x + 15, y + 17, 6);
+    ctx.fillStyle = '#fcfcfc';
+    puff(x + 1, y + 17, 5); puff(x + 8, y + 15, 6); puff(x + 15, y + 17, 5);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x + 5, y + 14, 1, 3);
+    ctx.fillRect(x + 10, y + 14, 1, 3);
+    ctx.restore();
   }
 
   function drawCannon(x, y) {
@@ -2684,6 +2970,39 @@
       if (!e.active) continue;
       const x = Math.round(e.x - 1 - cx);
       const y = Math.round(e.y + e.h - 16);
+      if (e.type === 'spiny') {
+        const spr = SPR.spiny[Math.floor(e.anim / 10) % 2];
+        if (e.state === 'flip') {
+          ctx.save();
+          ctx.translate(x, y + 16);
+          ctx.scale(1, -1);
+          ctx.drawImage(spr.r, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.drawImage(e.vx < 0 ? spr.l : spr.r, x, y);
+        }
+        continue;
+      }
+      if (e.type === 'hammer') {
+        const spr = SPR.koopa[Math.floor(e.anim / 10) % 2];
+        const ky = Math.round(e.y + e.h - 23);
+        const face = e.face || -1;
+        if (e.state === 'flip') {
+          ctx.save();
+          ctx.translate(x, ky + 24);
+          ctx.scale(1, -1);
+          ctx.drawImage(spr.r, 0, 0);
+          ctx.restore();
+          continue;
+        }
+        ctx.drawImage(face < 0 ? spr.l : spr.r, x, ky);
+        // 黑色头盔
+        ctx.fillStyle = '#1c1c1c';
+        ctx.fillRect(face > 0 ? x + 9 : x + 1, ky - 1, 6, 3);
+        // 举起的锤子
+        if (e.throwT > 0) drawHammer(face > 0 ? x + 12 : x - 4, ky - 8, face > 0 ? -0.6 : 0.6);
+        continue;
+      }
       if (e.type === 'koopa' || e.type === 'para') {
         if (e.state === 'walk') {
           const spr = SPR.koopa[Math.floor(e.anim / 10) % 2];
@@ -2804,6 +3123,8 @@
     drawHazards(cx);
     drawBullets(cx);
     drawPodoboos(cx);
+    drawHammers(cx);
+    drawLakitu(cx);
     drawEffects(cx);
     if (LEVELS[game.level].snow) drawSnow();
   }
@@ -2925,5 +3246,5 @@
   requestAnimationFrame(loop);
 
   // 调试/测试钩子
-  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; }, get boss() { return boss; }, get firebars() { return firebars; }, get piranhas() { return piranhas; }, get bullets() { return bullets; }, get podoboos() { return podoboos; } };
+  window.__smb = { game, get player() { return player; }, get enemies() { return enemies; }, get camX() { return camX; }, get platforms() { return platforms; }, get boss() { return boss; }, get firebars() { return firebars; }, get piranhas() { return piranhas; }, get bullets() { return bullets; }, get podoboos() { return podoboos; }, get hammers() { return hammers; }, get lakitu() { return lakitu; } };
 })();
