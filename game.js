@@ -232,6 +232,11 @@
     if (k || e.code === 'Enter') e.preventDefault();
     if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
     if (e.code === 'KeyM') { toggleMute(); return; }
+    if (game.state === 'title' && (k === 'left' || k === 'right')) {
+      Sound.init();
+      changeSel(k === 'left' ? -1 : 1);
+      return;
+    }
     anyPress();
     if (!k) return;
     if (k === 'jump' && !keys.jump && !e.repeat) pressJump();
@@ -264,6 +269,11 @@
   }
   dpad.addEventListener('pointerdown', e => {
     e.preventDefault();
+    if (game.state === 'title') {
+      Sound.init();
+      changeSel(dpadX(e) < 0 ? -1 : 1);
+      return;
+    }
     anyPress();
     try { dpad.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     dpadPointers.set(e.pointerId, dpadX(e));
@@ -301,8 +311,23 @@
   document.getElementById('stage').addEventListener('pointerdown', e => {
     e.preventDefault();
     if (paused) { togglePause(); return; }
+    if (game.state === 'title' && titleArrows) {
+      const pt = toCanvasPoint(e);
+      const hit = r => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
+      if (hit(titleArrows.l)) { Sound.init(); changeSel(-1); return; }
+      if (hit(titleArrows.r)) { Sound.init(); changeSel(1); return; }
+    }
     anyPress();
   });
+
+  // 把点击位置换算成画布的逻辑坐标（考虑强制横屏的旋转）
+  function toCanvasPoint(e) {
+    const rc = canvas.getBoundingClientRect();
+    if (rotated) {
+      return { x: (e.clientY - rc.top) / rc.height * VIEW_W, y: (rc.right - e.clientX) / rc.width * VIEW_H };
+    }
+    return { x: (e.clientX - rc.left) / rc.width * VIEW_W, y: (e.clientY - rc.top) / rc.height * VIEW_H };
+  }
   document.getElementById('pauseBtn').addEventListener('click', e => { e.currentTarget.blur(); togglePause(); });
   document.getElementById('muteBtn').addEventListener('click', e => { e.currentTarget.blur(); toggleMute(); });
   document.getElementById('rotateBtn').addEventListener('click', e => {
@@ -1219,13 +1244,19 @@
   // ============================================================
   let best = 0;
   try { best = parseInt(localStorage.getItem('smb_best') || '0', 10) || 0; } catch (e) { /* ignore */ }
+  // 已解锁的最远关卡（进入过的关卡都能在标题画面选）
+  let unlocked = 0;
+  try { unlocked = parseInt(localStorage.getItem('smb_unlocked') || '0', 10) || 0; } catch (e) { /* ignore */ }
+  unlocked = Math.max(0, Math.min(unlocked, LEVELS.length - 1));
+  let titleArrows = null;   // 标题画面选关箭头的点击区域（逻辑坐标）
 
   const game = {
     state: 'title',   // title | intro | play | dying | flag | clear | gameover
     score: 0, coins: 0, lives: 3, time: 400, timeTick: 0,
     frame: 0, stateT: 0, checkpoint: false,
     flagY: 0, flagPhase: 0, combo: 0,
-    level: 0, carryBig: false,
+    level: unlocked, carryBig: false,
+    sel: unlocked,    // 标题画面选中的关卡
   };
   let paused = false;
   let camX = 0;
@@ -1256,7 +1287,7 @@
     game.coins = 0;
     game.lives = 3;
     game.checkpoint = false;
-    game.level = 0;
+    game.level = game.sel;
     game.carryBig = false;
     startIntro();
   }
@@ -1267,6 +1298,10 @@
   }
 
   function startLevel() {
+    if (game.level > unlocked) {
+      unlocked = game.level;
+      try { localStorage.setItem('smb_unlocked', String(unlocked)); } catch (e) { /* ignore */ }
+    }
     buildLevel();
     bumps.clear();
     items = [];
@@ -1322,7 +1357,8 @@
   function toTitle() {
     game.state = 'title';
     game.stateT = 0;
-    game.level = 0;
+    game.sel = Math.min(game.sel, unlocked);
+    game.level = game.sel;
     buildLevel();
     player = newPlayer(40);
     enemies = [];
@@ -1338,6 +1374,16 @@
     effects = [];
     bumps.clear();
     camX = 0;
+  }
+
+  // 标题画面切换关卡，背景换成那一关的场景
+  function changeSel(d) {
+    if (unlocked === 0) return;
+    const n = Math.max(0, Math.min(unlocked, game.sel + d));
+    if (n === game.sel) return;
+    game.sel = n;
+    Sound.sfx.tick();
+    toTitle();
   }
 
   function anyPress() {
@@ -2658,18 +2704,42 @@
     drawHUD();
 
     if (game.state === 'title') {
-      const w = Math.min(220, VIEW_W - 24), h = 92;
-      const x = Math.round(mid - w / 2), y = 36;
+      const canSelect = unlocked > 0;
+      const w = Math.min(220, VIEW_W - 24), h = canSelect ? 108 : 92;
+      const x = Math.round(mid - w / 2), y = canSelect ? 26 : 36;
       panel(x, y, w, h);
       text('超级玛丽', mid, y + 12, { size: 22, align: 'center', color: '#fcd8a8' });
       text('SUPER MARIO · H5', mid, y + 42, { size: 8, align: 'center', color: '#fff' });
       text('最高分 ' + pad(best, 6), mid, y + 62, { size: 7, align: 'center', color: '#fcd8a8' });
+      titleArrows = null;
+      if (canSelect) {
+        // 选关：◀ 关卡名 ▶
+        const sy = y + 80;
+        text('选关', mid - 62, sy + 2, { size: 8, color: '#fcd8a8' });
+        text(LEVELS[game.sel].name, mid + 8, sy, { size: 12, align: 'center' });
+        const arrow = (ax, dir, on) => {
+          ctx.fillStyle = on ? '#fcfcfc' : 'rgba(252,252,252,.3)';
+          ctx.beginPath();
+          ctx.moveTo(ax + (dir < 0 ? 0 : 10), sy + 6);
+          ctx.lineTo(ax + (dir < 0 ? 10 : 0), sy);
+          ctx.lineTo(ax + (dir < 0 ? 10 : 0), sy + 12);
+          ctx.closePath();
+          ctx.fill();
+        };
+        arrow(mid - 30, -1, game.sel > 0);
+        arrow(mid + 36, 1, game.sel < unlocked);
+        titleArrows = {
+          l: { x: mid - 42, y: sy - 8, w: 34, h: 28 },
+          r: { x: mid + 24, y: sy - 8, w: 34, h: 28 },
+        };
+      }
+      const ly = canSelect ? 146 : 140;
       if (Math.floor(game.frame / 30) % 2 === 0) {
-        text('▶ 点击屏幕 / 按回车 开始', mid, 140, { size: 9, align: 'center' });
+        text('▶ 点击屏幕 / 按回车 开始', mid, ly, { size: 9, align: 'center' });
       }
       const touchUI = document.body.classList.contains('touch');
       text(touchUI ? '◀ ▶ 移动(一直走会自动加速)   A 跳跃' : '←→ 移动(一直走会自动加速)   Z/空格 跳跃   P 暂停',
-        mid, 158, { size: 7, align: 'center', color: '#fcfcfc' });
+        mid, ly + 18, { size: 7, align: 'center', color: '#fcfcfc' });
     } else if (game.state === 'clear') {
       const w = Math.min(200, VIEW_W - 24), h = 70;
       const x = Math.round(mid - w / 2), y = 50;
