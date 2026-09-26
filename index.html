@@ -6,6 +6,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#000000">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>超级玛丽 H5</title>
   <style>
     /* 禁止长按选字和系统菜单（微信里长按会弹出「搜一搜 / 翻译」挡住按键） */
@@ -145,30 +148,43 @@
     }
     body.rotated #stage { align-items: center; padding-top: 0; }
     body.rotated #hint { display: none !important; }
+    /* 文字都用伪元素画出来，页面上没有可以被长按选中的文字 */
+    #hint::after, #topbar button::after { content: attr(data-label); }
+    .btn::before { content: attr(data-label); }
+    .btn::after { content: attr(data-sub); font-size: 11px; font-weight: normal; margin-top: 3px; opacity: .85; }
+    .arrow::before {
+      content: '';
+      width: 0;
+      height: 0;
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+    }
+    .arrow[data-dir="left"]::before { border-right: 18px solid #fff; }
+    .arrow[data-dir="right"]::before { border-left: 18px solid #fff; }
   </style>
 </head>
 <body>
   <div id="app">
   <div id="stage"><canvas id="game"></canvas></div>
-  <div id="hint">横屏体验更佳：手机横过来，或点上方「横屏」按钮</div>
+  <div id="hint" data-label="横屏体验更佳：手机横过来，或点上方「横屏」按钮"></div>
 
   <div id="controls">
     <div id="dpad">
-      <div class="arrow" data-dir="left">◀</div>
-      <div class="arrow" data-dir="right">▶</div>
+      <div class="arrow" data-dir="left"></div>
+      <div class="arrow" data-dir="right"></div>
     </div>
     <div id="btns">
-      <div id="btnA" class="btn">A<small>跳跃</small></div>
+      <div id="btnA" class="btn" data-label="A" data-sub="跳跃"></div>
     </div>
   </div>
 
   <div id="topbar">
-    <button id="pauseBtn" title="暂停 (P)">❚❚</button>
-    <button id="muteBtn" title="静音 (M)">♪</button>
-    <button id="rotateBtn" title="切换横屏">横屏</button>
+    <button id="pauseBtn" aria-label="暂停" data-label="❚❚"></button>
+    <button id="muteBtn" aria-label="静音" data-label="♪"></button>
+    <button id="rotateBtn" aria-label="切换横屏" data-label="横屏"></button>
   </div>
   </div>
 
-  <script src="game.js"></script>
+  <script src="game.js?v14"></script>
 </body>
 </html>

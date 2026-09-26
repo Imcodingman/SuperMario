@@ -18,6 +18,7 @@
   let VIEW_W = 256;
   let SCALE = 3;
 
+  const VERSION = 'v14';
   const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   // 微信、QQ、钉钉、支付宝等 App 内置的浏览器不跟随手机转屏
   const IN_APP = /MicroMessenger|QQ\/|DingTalk|AlipayClient|Weibo/i.test(navigator.userAgent);
@@ -31,7 +32,7 @@
     document.body.classList.toggle('show-rotate', screenPortrait);
     rotated = IS_TOUCH && forceLandscape && screenPortrait;
     document.body.classList.toggle('rotated', rotated);
-    document.getElementById('rotateBtn').textContent = rotated ? '竖屏' : '横屏';
+    document.getElementById('rotateBtn').dataset.label = rotated ? '竖屏' : '横屏';
     if (rotated) {
       // 页面顺时针转 90 度：宽高互换，手机逆时针横过来拿
       app.style.width = window.innerHeight + 'px';
@@ -328,19 +329,23 @@
     }
     return { x: (e.clientX - rc.left) / rc.width * VIEW_W, y: (e.clientY - rc.top) / rc.height * VIEW_H };
   }
-  document.getElementById('pauseBtn').addEventListener('click', e => { e.currentTarget.blur(); togglePause(); });
-  document.getElementById('muteBtn').addEventListener('click', e => { e.currentTarget.blur(); toggleMute(); });
-  document.getElementById('rotateBtn').addEventListener('click', e => {
-    e.currentTarget.blur();
+  const onPress = (id, fn) => document.getElementById(id).addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  });
+  onPress('pauseBtn', () => togglePause());
+  onPress('muteBtn', () => toggleMute());
+  onPress('rotateBtn', () => {
     forceLandscape = !forceLandscape;
     resize();
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
   // iOS / 微信：长按会触发选字菜单，只拦 pointer 事件不够，要在 touchstart 里阻止默认行为。
-  // 游戏按键用的是 pointer 事件，不受影响；右下角的暂停等按钮用 click，所以不在拦截范围内。
-  document.addEventListener('touchstart', e => {
-    if (e.target.closest && e.target.closest('#controls, #stage')) e.preventDefault();
-  }, { passive: false });
+  // 所有按键都用 pointer 事件，不受影响，所以整个页面都拦。
+  document.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  // iOS 只认 touchend 之类的手势来解锁声音
+  document.addEventListener('touchend', () => Sound.init());
   document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
   document.addEventListener('selectstart', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
@@ -348,9 +353,9 @@
   function toggleMute() {
     Sound.init();
     const m = Sound.toggleMute();
-    document.getElementById('muteBtn').textContent = m ? '✕' : '♪';
+    document.getElementById('muteBtn').dataset.label = m ? '✕' : '♪';
   }
-  document.getElementById('muteBtn').textContent = Sound.muted ? '✕' : '♪';
+  document.getElementById('muteBtn').dataset.label = Sound.muted ? '✕' : '♪';
 
   function readInput() {
     input.left = keys.left || touch.left;
@@ -1646,7 +1651,7 @@
     Sound.init();
     if (paused) { Sound.stopBgm(); Sound.sfx.pause(); }
     else if (game.state === 'play') Sound.startBgm(game.time <= 100, LEVELS[game.level].song);
-    document.getElementById('pauseBtn').textContent = paused ? '▶' : '❚❚';
+    document.getElementById('pauseBtn').dataset.label = paused ? '▶' : '❚❚';
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && !paused) togglePause();
@@ -3185,6 +3190,7 @@
       text('超级玛丽', mid, y + 12, { size: 22, align: 'center', color: '#fcd8a8' });
       text('SUPER MARIO · H5', mid, y + 42, { size: 8, align: 'center', color: '#fff' });
       text('最高分 ' + pad(best, 6), mid, y + 62, { size: 7, align: 'center', color: '#fcd8a8' });
+      text('版本 ' + VERSION, x + w - 6, y + 4, { size: 6, align: 'right', color: '#fcd8a8' });
       titleArrows = null;
       if (canSelect) {
         // 选关：◀ 关卡名 ▶
