@@ -18,7 +18,7 @@
   let VIEW_W = 256;
   let SCALE = 3;
 
-  const VERSION = 'v15';
+  const VERSION = 'v16';
   const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   // 微信、QQ、钉钉、支付宝等 App 内置的浏览器不跟随手机转屏
   const IN_APP = /MicroMessenger|QQ\/|DingTalk|AlipayClient|Weibo/i.test(navigator.userAgent);
@@ -1248,12 +1248,12 @@
       [118, 8, 7, -1], [140, 10, 6, 1], [166, 9, 7, -1],
     ],
     // 会从岩浆里跳出来的火球（所在列）
-    podoboos: [11, 26, 43, 63, 87, 107, 128, 153, 185],
+    podoboos: [11, 26, 43, 66, 87, 110, 128, 156, 185],
     cannons: [[48, 12], [136, 11]],
     platforms: [
-      { x: 60, y: 10, axis: 'x', min: 60, max: 64 },
-      { x: 104, y: 9, axis: 'x', min: 104, max: 108 },
-      { x: 150, y: 10, axis: 'x', min: 150, max: 154 },
+      { x: 60, y: 10, axis: 'x', min: 60, max: 63 },
+      { x: 104, y: 9, axis: 'x', min: 104, max: 107 },
+      { x: 150, y: 10, axis: 'x', min: 150, max: 153 },
     ],
     // 更凶的魔王：喷火更频繁、一次两颗、跳得更勤
     boss: { x: 186, min: 181, max: 190, fireRate: 80, double: true, hop: 70 },
@@ -1325,7 +1325,7 @@
     theme: 'castle',
     time: 300,
     enemySpeed: 0.8,
-    firebarSpeed: 0.05,
+    firebarSpeed: 0.04,
     checkpoint: [105, 12],
     deco: [],
     enemies: [
@@ -1338,7 +1338,7 @@
       [90, 10, 6, 1, 0], [90, 10, 6, 1, Math.PI], [110, 12, 6, -1], [132, 8, 7, 1],
       [154, 10, 6, -1, 0], [154, 10, 6, -1, Math.PI],
     ],
-    podoboos: [10, 23, 40, 60, 80, 100, 122, 144, 163, 186],
+    podoboos: [10, 23, 44, 59, 77, 100, 126, 143, 166, 186],
     cannons: [[30, 12], [114, 11], [169, 12]],
     // 'fall' 是落下平台：站上去一会儿就往下掉
     platforms: [
@@ -1422,7 +1422,7 @@
     theme: 'castle',
     time: 300,
     enemySpeed: 0.85,
-    firebarSpeed: 0.045,
+    firebarSpeed: 0.035,
     checkpoint: [102, 12],
     deco: [],
     enemies: [
@@ -1430,21 +1430,22 @@
       [128, 12], [144, 12, 'koopa'], [166, 12], [167.5, 12],
     ],
     firebars: [
-      [14, 10, 6, 1], [30, 12, 6, -1], [47, 10, 6, 1, 0], [47, 10, 6, 1, Math.PI],
-      [66, 12, 6, -1], [86, 9, 7, 1], [106, 10, 6, 1, 0], [106, 10, 6, 1, Math.PI], [126, 12, 6, -1],
-      [146, 9, 7, 1, 0], [146, 9, 7, 1, Math.PI], [168, 10, 6, -1],
+      // 每个岩浆坑后面先留两三格火焰棍够不着的落脚处
+      [15, 10, 4, 1], [30, 12, 6, -1], [47, 10, 6, 1],
+      [66, 12, 6, -1], [86, 9, 7, 1], [106, 10, 6, 1], [126, 12, 6, -1],
+      [146, 9, 7, 1], [168, 10, 6, -1],
     ],
-    // 有平台的岩浆坑不放火球，免得火球从脚下平台底下冒出来
-    podoboos: [9, 42, 186],
+    // 岩浆火球只放在平台之间的缝隙或坑边，不会从脚下平台底下冒出来
+    podoboos: [9, 24, 42, 55, 73, 95, 120, 135, 160, 186],
     cannons: [[28, 12], [88, 11], [164, 12]],
     platforms: [
       { x: 18, y: 10, axis: 'fall' }, { x: 21, y: 9, axis: 'fall' },
       { x: 34, y: 10, axis: 'x', min: 34, max: 39 },
-      { x: 52, y: 10, axis: 'fall' }, { x: 55, y: 9, axis: 'fall' }, { x: 58, y: 10, axis: 'fall' },
+      { x: 52, y: 10, axis: 'fall' }, { x: 56, y: 9, axis: 'fall' },
       { x: 75, y: 8, axis: 'y', min: 5, max: 11 },
-      { x: 92, y: 10, axis: 'fall' }, { x: 95, y: 9, axis: 'fall' }, { x: 98, y: 10, axis: 'fall' },
+      { x: 92, y: 10, axis: 'fall' }, { x: 96, y: 9, axis: 'fall' },
       { x: 112, y: 9, axis: 'x', min: 112, max: 117 },
-      { x: 132, y: 10, axis: 'fall' }, { x: 135, y: 8, axis: 'fall' }, { x: 138, y: 10, axis: 'fall' },
+      { x: 132, y: 10, axis: 'fall' }, { x: 136, y: 8, axis: 'fall' },
       { x: 152, y: 10, axis: 'x', min: 152, max: 157 },
     ],
     // 最终魔王：更快、喷火更勤，还会扔锤子
