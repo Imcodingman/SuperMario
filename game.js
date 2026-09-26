@@ -336,6 +336,13 @@
     resize();
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
+  // iOS / 微信：长按会触发选字菜单，只拦 pointer 事件不够，要在 touchstart 里阻止默认行为。
+  // 游戏按键用的是 pointer 事件，不受影响；右下角的暂停等按钮用 click，所以不在拦截范围内。
+  document.addEventListener('touchstart', e => {
+    if (e.target.closest && e.target.closest('#controls, #stage')) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('selectstart', e => e.preventDefault());
   document.addEventListener('gesturestart', e => e.preventDefault());
 
   function toggleMute() {

@@ -8,6 +8,12 @@
   <meta name="theme-color" content="#000000">
   <title>超级玛丽 H5</title>
   <style>
+    /* 禁止长按选字和系统菜单（微信里长按会弹出「搜一搜 / 翻译」挡住按键） */
+    * {
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      -webkit-touch-callout: none !important;
+    }
     html, body {
       margin: 0;
       height: 100%;
