@@ -18,7 +18,7 @@
   let VIEW_W = 256;
   let SCALE = 3;
 
-  const VERSION = 'v14';
+  const VERSION = 'v15';
   const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   // 微信、QQ、钉钉、支付宝等 App 内置的浏览器不跟随手机转屏
   const IN_APP = /MicroMessenger|QQ\/|DingTalk|AlipayClient|Weibo/i.test(navigator.userAgent);
@@ -1422,7 +1422,7 @@
     theme: 'castle',
     time: 300,
     enemySpeed: 0.85,
-    firebarSpeed: 0.055,
+    firebarSpeed: 0.045,
     checkpoint: [102, 12],
     deco: [],
     enemies: [
@@ -1430,11 +1430,12 @@
       [128, 12], [144, 12, 'koopa'], [166, 12], [167.5, 12],
     ],
     firebars: [
-      [14, 10, 6, 1, 0], [14, 10, 6, 1, Math.PI], [30, 12, 6, -1], [47, 10, 6, 1, 0], [47, 10, 6, 1, Math.PI],
+      [14, 10, 6, 1], [30, 12, 6, -1], [47, 10, 6, 1, 0], [47, 10, 6, 1, Math.PI],
       [66, 12, 6, -1], [86, 9, 7, 1], [106, 10, 6, 1, 0], [106, 10, 6, 1, Math.PI], [126, 12, 6, -1],
       [146, 9, 7, 1, 0], [146, 9, 7, 1, Math.PI], [168, 10, 6, -1],
     ],
-    podoboos: [9, 21, 38, 56, 76, 96, 116, 136, 156, 186],
+    // 有平台的岩浆坑不放火球，免得火球从脚下平台底下冒出来
+    podoboos: [9, 42, 186],
     cannons: [[28, 12], [88, 11], [164, 12]],
     platforms: [
       { x: 18, y: 10, axis: 'fall' }, { x: 21, y: 9, axis: 'fall' },
@@ -1840,8 +1841,8 @@
         pl.x += pl.speed * pl.dir;
         if (pl.x >= pl.max) { pl.x = pl.max; pl.dir = -1; } else if (pl.x <= pl.min) { pl.x = pl.min; pl.dir = 1; }
       } else if (pl.axis === 'fall') {
-        // 站上去 20 帧后开始下落
-        if (pl.touched && ++pl.t > 20) {
+        // 站上去 30 帧（半秒）后开始下落
+        if (pl.touched && ++pl.t > 30) {
           pl.vy = Math.min(pl.vy + 0.15, 4);
           pl.y += pl.vy;
         }
@@ -2934,7 +2935,7 @@
       const x = Math.round(pl.x - cx), y = Math.round(pl.y);
       if (x > VIEW_W || x + pl.w < 0) continue;
       const fall = pl.axis === 'fall';
-      const shake = fall && pl.touched && pl.t <= 20 && game.frame % 4 < 2 ? 1 : 0;
+      const shake = fall && pl.touched && pl.t <= 30 && game.frame % 4 < 2 ? 1 : 0;
       ctx.fillStyle = '#000';
       ctx.fillRect(x + shake, y, pl.w, pl.h);
       // 落下平台是灰白色，普通升降平台是橙色
